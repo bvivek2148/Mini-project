@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from .storage import AlertStorage
 
@@ -14,13 +15,24 @@ from .storage import AlertStorage
 BASE_DIR = Path(__file__).resolve().parents[1]
 DATA_DIR = BASE_DIR / "data"
 ALERTS_FILE = DATA_DIR / "alerts.jsonl"
+DASHBOARD_DIST = BASE_DIR / "dashboard" / "dist"
 
 app = FastAPI(title="Ransom-Trap Alert Server")
 storage = AlertStorage(ALERTS_FILE)
 
+# Serve built React SPA static assets if available
+if DASHBOARD_DIST.exists():
+    app.mount("/assets", StaticFiles(directory=DASHBOARD_DIST / "assets"), name="assets")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def index() -> str:
+    """Serve the React dashboard SPA entrypoint if built, otherwise fall back to simple HTML."""
+    index_html = DASHBOARD_DIST / "index.html"
+    if index_html.exists():
+        return index_html.read_text(encoding="utf-8")
+
+    # Fallback: simple HTML table of alerts if SPA is not built yet
     alerts: List[Dict[str, Any]] = list(reversed(storage.get_alerts()))
     rows = []
     for a in alerts:
