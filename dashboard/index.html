@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SentinelGuard Dashboard - Overview</title>
+    <title>Ransom Trap Dashboard - Overview</title>
 
     <!-- Fonts and icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -27,13 +27,31 @@
           extend: {
             colors: {
               primary: '#137fec',
+              'primary-dark': '#0f65bd',
               'background-light': '#f6f7f8',
               'background-dark': '#101922',
+              'surface-dark': '#16202a',
+              'surface-light': '#ffffff',
+              'border-dark': '#233648',
               'card-dark': '#1e293b',
               'card-dark-lighter': '#233648',
+              'text-secondary': '#92adc9',
+              danger: '#ef4444',
+              success: '#22c55e',
+              warning: '#f59e0b',
             },
             fontFamily: {
-              display: ['Inter', 'sans-serif'],
+              display: ['Inter', 'Noto Sans', 'sans-serif'],
+              mono: [
+                'ui-monospace',
+                'SFMono-Regular',
+                'Menlo',
+                'Monaco',
+                'Consolas',
+                'Liberation Mono',
+                'Courier New',
+                'monospace',
+              ],
             },
             borderRadius: {
               DEFAULT: '0.25rem',
@@ -59,7 +77,14 @@
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #334b63;
+        background: #344a5e;
+      }
+      .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
       }
       #restart-modal {
         display: none;
@@ -67,9 +92,33 @@
       #restart-modal:target {
         display: flex;
       }
+
+      .topology-grid {
+        background-image: radial-gradient(circle at 1px 1px, rgba(148, 163, 184, 0.12) 1px, transparent 0);
+        background-size: 40px 40px;
+      }
+
+      @keyframes pulse-red-ring {
+        0% {
+          transform: scale(1);
+          opacity: 0.9;
+        }
+        70% {
+          transform: scale(1.6);
+          opacity: 0;
+        }
+        100% {
+          transform: scale(1.6);
+          opacity: 0;
+        }
+      }
+
+      .animate-pulse-red {
+        animation: pulse-red-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
     </style>
   </head>
-  <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display antialiased">
+  <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden selection:bg-primary/30">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

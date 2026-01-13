@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 
 export default function DashboardOverviewPage() {
   return (
@@ -20,18 +21,34 @@ export default function DashboardOverviewPage() {
               </div>
             </div>
             <nav className="flex flex-col gap-2">
-              <a className="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary text-white transition-colors" href="#">
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary text-white transition-colors"
+              >
                 <span className="material-symbols-outlined fill-1">dashboard</span>
                 <span className="text-sm font-medium leading-normal">Overview</span>
-              </a>
-              <a className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors" href="#">
+              </Link>
+              <Link
+                to="/alerts/R-2024-001"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+              >
                 <span className="material-symbols-outlined">warning</span>
                 <span className="text-sm font-medium leading-normal">Incidents</span>
-              </a>
-              <a className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors" href="#">
+              </Link>
+              <Link
+                to="/entropy"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined text-2xl">ssid_chart</span>
+                <span className="text-sm font-medium leading-normal">Entropy Analysis</span>
+              </Link>
+              <Link
+                to="/network"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+              >
                 <span className="material-symbols-outlined">hub</span>
                 <span className="text-sm font-medium leading-normal">Network Topology View</span>
-              </a>
+              </Link>
               <a className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors" href="#">
                 <span className="material-symbols-outlined">gavel</span>
                 <span className="text-sm font-medium leading-normal">Policy Management</span>
@@ -40,10 +57,13 @@ export default function DashboardOverviewPage() {
                 <span className="material-symbols-outlined">list_alt</span>
                 <span className="text-sm font-medium leading-normal">Logs</span>
               </a>
-              <a className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors" href="#">
+              <Link
+                to="/reports"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+              >
                 <span className="material-symbols-outlined">description</span>
                 <span className="text-sm font-medium leading-normal">Reports</span>
-              </a>
+              </Link>
             </nav>
           </div>
           <div className="flex flex-col gap-2 border-t border-[#233648] pt-4">
@@ -78,7 +98,7 @@ export default function DashboardOverviewPage() {
                   <path d="M14 24H34" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
                 </svg>
               </div>
-              <h2 className="text-white text-xl font-black leading-tight tracking-tight hidden sm:block">SentinelGuard</h2>
+              <h2 className="text-white text-xl font-black leading-tight tracking-tight hidden sm:block">Ransom Trap</h2>
             </div>
             <label className="hidden md:flex flex-col min-w-40 flex-1 h-10 max-w-lg ml-8">
               <div className="flex w-full flex-1 items-stretch rounded-lg h-full bg-[#233648] focus-within:ring-2 focus-within:ring-primary transition-shadow">
@@ -443,7 +463,7 @@ export default function DashboardOverviewPage() {
             </div>
             <div className="space-y-4">
               <p className="text-[#92adc9] text-sm leading-relaxed">
-                Are you sure you want to restart the SentinelGuard monitoring service?
+                Are you sure you want to restart the Ransom Trap monitoring service?
               </p>
               <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
                 <span className="material-symbols-outlined text-orange-500 text-sm mt-0.5">warning</span>

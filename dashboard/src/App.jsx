@@ -2,16 +2,16 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import DashboardOverviewPage from './pages/DashboardOverviewPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RealTimeAlertsPage from './pages/RealTimeAlertsPage.jsx'
+import AlertDetailsPage from './pages/AlertDetailsPage.jsx'
+import EntropyAnalysisPage from './pages/EntropyAnalysisPage.jsx'
+import NetworkTopologyViewPage from './pages/NetworkTopologyViewPage.jsx'
+import ReportsPage from './pages/ReportsPage.jsx'
 import {
-  AlertDetailsPage,
-  EntropyAnalysisPage,
   HoneytokenAccessLogsPage,
   HoneytokenManagementPage,
   UserManagementPage,
   ThresholdConfigurationPage,
-  ReportsPage,
   ProcessTerminationLogPage,
-  NetworkTopologyViewPage,
 } from './pages/Placeholders.jsx'
 
 function App() {

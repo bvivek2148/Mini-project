@@ -18,20 +18,6 @@ function SimplePage({ title, description }) {
   )
 }
 
-export const AlertDetailsPage = () => (
-  <SimplePage
-    title="Alert Details"
-    description="Drill-down view for a single ransomware or honeytoken alert."
-  />
-)
-
-export const EntropyAnalysisPage = () => (
-  <SimplePage
-    title="Entropy Analysis"
-    description="Visualize Shannon entropy trends and affected files over time."
-  />
-)
-
 export const HoneytokenAccessLogsPage = () => (
   <SimplePage
     title="Honeytoken Access Logs"
@@ -60,13 +46,6 @@ export const ThresholdConfigurationPage = () => (
   />
 )
 
-export const ReportsPage = () => (
-  <SimplePage
-    title="Reports"
-    description="Generate incident and compliance reports based on collected alerts."
-  />
-)
-
 export const ProcessTerminationLogPage = () => (
   <SimplePage
     title="Process Termination Log"
@@ -74,9 +53,3 @@ export const ProcessTerminationLogPage = () => (
   />
 )
 
-export const NetworkTopologyViewPage = () => (
-  <SimplePage
-    title="Network Topology View"
-    description="High-level view of endpoints and their security status across the network."
-  />
-)
