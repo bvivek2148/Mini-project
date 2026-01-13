@@ -1,0 +1,28 @@
+agent:
+  monitored_paths:
+    - "/home/<youruser>/Documents"
+    - "/home/<youruser>/Desktop"
+  honeytoken_paths:
+    - "/home/<youruser>/Documents"
+    - "/home/<youruser>/Desktop"
+  alert_server_url: "http://127.0.0.1:8000"
+  log_file: "logs/agent.log"
+
+detection:
+  entropy_threshold: 7.0
+  min_suspicious_files: 5
+  time_window_seconds: 10
+  kill_on_detection: false
+  ignored_processes:
+    - "rsync"
+    - "tar"
+
+honeytokens:
+  file_names:
+    - "passwords.xlsx"
+    - "bank_logins.txt"
+    - "budget_2024.pdf"
+  auto_regenerate: true
+
+host:
+  hostname: null
