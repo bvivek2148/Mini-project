@@ -44,3 +44,4 @@
 2026-01-13 18:19:15,811 [INFO] ransom_trap.agent: Ransom-Trap agent is now monitoring 2 path(s)
 2026-01-13 18:20:05,416 [INFO] ransom_trap.agent: ALERT: {"alert_type": "honeytoken_access", "host": "VIKKY7082", "pid": null, "process_name": null, "timestamp": 1768308605.416449, "path": "D:\\Delete folder-C\\Mini project\\test_files\\Desktop\\bank_logins.txt"}
 2026-01-13 18:20:26,383 [INFO] ransom_trap.agent: ALERT: {"alert_type": "honeytoken_access", "host": "VIKKY7082", "pid": null, "process_name": null, "timestamp": 1768308626.3830175, "path": "D:\\Delete folder-C\\Mini project\\test_files\\Documents\\bank_logins.txt"}
+2026-01-13 18:39:04,425 [INFO] ransom_trap.agent: Stopping Ransom-Trap agent (KeyboardInterrupt)
