@@ -6,12 +6,12 @@ import AlertDetailsPage from './pages/AlertDetailsPage.jsx'
 import EntropyAnalysisPage from './pages/EntropyAnalysisPage.jsx'
 import NetworkTopologyViewPage from './pages/NetworkTopologyViewPage.jsx'
 import ReportsPage from './pages/ReportsPage.jsx'
+import ProcessTerminationLogPage from './pages/ProcessTerminationLogPage.jsx'
 import {
   HoneytokenAccessLogsPage,
   HoneytokenManagementPage,
   UserManagementPage,
   ThresholdConfigurationPage,
-  ProcessTerminationLogPage,
 } from './pages/Placeholders.jsx'
 
 function App() {

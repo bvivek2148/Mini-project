@@ -1,8 +1,12 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 
 export default function AlertDetailsPage() {
+  const { id } = useParams()
+  const [incidentsMenuOpen, setIncidentsMenuOpen] = useState(false)
+
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col font-display overflow-x-hidden text-slate-900 dark:text-white">
+    <div className="bg-background-light dark:bg-background-dark h-screen overflow-y-auto flex flex-col font-display overflow-x-hidden text-slate-900 dark:text-white">
       {/* Top Navigation */}
       <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-surface-dark bg-background-dark px-10 py-3 sticky top-0 z-50">
         <div className="flex items-center gap-8">
@@ -20,13 +24,13 @@ export default function AlertDetailsPage() {
               Incidents
             </a>
             <a className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">
-              Endpoints
+              Alerts
             </a>
             <a className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">
-              Intelligence
+              Devices
             </a>
             <a className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">
-              Settings
+              Analysts
             </a>
           </div>
         </div>
@@ -58,15 +62,45 @@ export default function AlertDetailsPage() {
         <div className="w-full max-w-[1400px] flex flex-col gap-6">
           {/* Breadcrumbs */}
           <nav className="flex items-center text-sm">
-            <a className="text-text-secondary hover:text-white transition-colors" href="#">
-              Incidents
-            </a>
+            <div className="relative inline-flex items-center">
+              <Link
+                className="text-text-secondary hover:text-white transition-colors"
+                to="/alerts/real-time"
+                onClick={() => setIncidentsMenuOpen(false)}
+              >
+                Incidents
+              </Link>
+              <button
+                type="button"
+                className="ml-1 inline-flex items-center justify-center text-text-secondary hover:text-white transition-colors"
+                aria-label="Incidents menu"
+                onClick={() => setIncidentsMenuOpen((v) => !v)}
+              >
+                <span className="material-symbols-outlined text-[18px]">expand_more</span>
+              </button>
+
+              {incidentsMenuOpen ? (
+                <div className="absolute left-0 top-full mt-2 min-w-52 rounded-lg border border-white/10 bg-surface-dark shadow-lg z-50 overflow-hidden">
+                  <Link
+                    className="block px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                    to={`/alerts/${id ?? 'R-2024-001'}`}
+                    onClick={() => setIncidentsMenuOpen(false)}
+                  >
+                    {id ?? 'R-2024-001'}
+                  </Link>
+                  <Link
+                    className="block px-3 py-2 text-sm text-white hover:bg-white/5 transition-colors"
+                    to="/processes/termination-log"
+                    onClick={() => setIncidentsMenuOpen(false)}
+                  >
+                    Termination Log
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+
             <span className="text-text-secondary mx-2">/</span>
-            <a className="text-text-secondary hover:text-white transition-colors" href="#">
-              Ransomware
-            </a>
-            <span className="text-text-secondary mx-2">/</span>
-            <span className="text-white font-medium">R-2024-001</span>
+            <span className="text-white font-medium">{id ?? 'R-2024-001'}</span>
           </nav>
 
           {/* Header Section */}
