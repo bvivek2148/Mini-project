@@ -7,9 +7,9 @@ import EntropyAnalysisPage from './pages/EntropyAnalysisPage.jsx'
 import NetworkTopologyViewPage from './pages/NetworkTopologyViewPage.jsx'
 import ReportsPage from './pages/ReportsPage.jsx'
 import ProcessTerminationLogPage from './pages/ProcessTerminationLogPage.jsx'
+import HoneytokenManagementPage from './pages/HoneytokenManagementPage.jsx'
 import {
   HoneytokenAccessLogsPage,
-  HoneytokenManagementPage,
   UserManagementPage,
   ThresholdConfigurationPage,
 } from './pages/Placeholders.jsx'

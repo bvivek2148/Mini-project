@@ -49,10 +49,13 @@ export default function DashboardOverviewPage() {
                 <span className="material-symbols-outlined">hub</span>
                 <span className="text-sm font-medium leading-normal">Network Topology View</span>
               </Link>
-              <a className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors" href="#">
-                <span className="material-symbols-outlined">gavel</span>
-                <span className="text-sm font-medium leading-normal">Policy Management</span>
-              </a>
+              <Link
+                to="/honeytokens/manage"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+              >
+                <span className="material-symbols-outlined">bug_report</span>
+                <span className="text-sm font-medium leading-normal">Honeytokens</span>
+              </Link>
               <a className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors" href="#">
                 <span className="material-symbols-outlined">list_alt</span>
                 <span className="text-sm font-medium leading-normal">Logs</span>
