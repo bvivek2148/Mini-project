@@ -22,7 +22,14 @@ export default function EntropyAnalysisPage() {
       >
         <div className="p-6 pb-2">
           <div className="flex flex-col gap-1">
-            <h1 className="text-white text-xl font-bold tracking-tight">Ransom Trap</h1>
+            <Link
+              to="/dashboard"
+              className="text-white text-xl font-bold tracking-tight hover:text-white"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Go to Dashboard"
+            >
+              Ransom Trap
+            </Link>
             <p className="text-[#92adc9] text-xs font-medium uppercase tracking-wider">Admin Console</p>
           </div>
         </div>

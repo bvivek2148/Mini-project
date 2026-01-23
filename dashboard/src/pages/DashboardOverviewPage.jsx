@@ -116,7 +116,12 @@ export default function DashboardOverviewPage() {
             >
               <span className="material-symbols-outlined">menu</span>
             </button>
-            <div className="flex items-center gap-3 text-white">
+            <Link
+              to="/dashboard"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-center gap-3 text-white hover:text-white"
+              aria-label="Go to Dashboard"
+            >
               <div className="size-8 text-primary">
                 <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                   <path
@@ -130,8 +135,8 @@ export default function DashboardOverviewPage() {
                   <path d="M14 24H34" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
                 </svg>
               </div>
-              <h2 className="text-white text-xl font-black leading-tight tracking-tight hidden sm:block">Ransom Trap</h2>
-            </div>
+              <span className="text-white text-xl font-black leading-tight tracking-tight hidden sm:block">Ransom Trap</span>
+            </Link>
             <label className="hidden md:flex flex-col min-w-40 flex-1 h-10 max-w-lg ml-8">
               <div className="flex w-full flex-1 items-stretch rounded-lg h-full bg-[#233648] focus-within:ring-2 focus-within:ring-primary transition-shadow">
                 <div className="text-[#92adc9] flex items-center justify-center pl-4 pr-2">

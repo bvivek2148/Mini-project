@@ -12,7 +12,13 @@ export default function ProcessTerminationLogPage() {
             <div className="text-primary size-8 flex items-center justify-center">
               <span className="material-symbols-outlined text-3xl">shield_lock</span>
             </div>
-            <h2 className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight">Ransom Trap</h2>
+            <Link
+              to="/dashboard"
+              className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight hover:text-primary dark:hover:text-white transition-colors"
+              aria-label="Go to Dashboard"
+            >
+              Ransom Trap
+            </Link>
           </div>
           <div className="flex flex-1 justify-end gap-8">
             <nav className="hidden lg:flex items-center gap-8">

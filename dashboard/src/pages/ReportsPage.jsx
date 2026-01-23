@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 
 export default function ReportsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -23,7 +24,14 @@ export default function ReportsPage() {
             <span className="material-symbols-outlined text-2xl">shield_lock</span>
           </div>
           <div>
-            <h1 className="text-white text-base font-bold leading-tight">Ransom Trap</h1>
+            <Link
+              to="/dashboard"
+              className="text-white text-base font-bold leading-tight hover:text-white"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Go to Dashboard"
+            >
+              Ransom Trap
+            </Link>
             <p className="text-[#92adc9] text-xs font-normal">Admin Console</p>
           </div>
         </div>

@@ -21,15 +21,20 @@ export default function HoneytokenManagementPage() {
             sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
         >
-          <div className="p-6 flex items-center gap-3">
+          <Link
+            className="p-6 flex items-center gap-3"
+            to="/dashboard"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Go to Dashboard"
+          >
             <div className="bg-primary/20 p-2 rounded-lg">
               <span className="material-symbols-outlined text-primary text-2xl">shield</span>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-white text-base font-bold leading-none">Ransom Trap</h1>
+              <span className="text-white text-base font-bold leading-none">Ransom Trap</span>
               <span className="text-gray-500 text-xs font-medium mt-1">Admin Console</span>
             </div>
-          </div>
+          </Link>
 
           <nav className="flex-1 px-4 py-4 flex flex-col gap-1 overflow-y-auto">
             <Link
@@ -90,7 +95,13 @@ export default function HoneytokenManagementPage() {
               >
                 <span className="material-symbols-outlined">menu</span>
               </button>
-              <span className="text-lg font-bold text-gray-900 dark:text-white">Ransom Trap</span>
+              <Link
+                className="text-lg font-bold text-gray-900 dark:text-white"
+                to="/dashboard"
+                onClick={() => setSidebarOpen(false)}
+              >
+                Ransom Trap
+              </Link>
             </div>
 
 
