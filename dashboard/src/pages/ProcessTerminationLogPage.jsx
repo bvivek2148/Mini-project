@@ -66,21 +66,17 @@ export default function ProcessTerminationLogPage() {
               <span className="text-slate-400 dark:text-[#586e84] font-medium">/</span>
 
               <div className="relative inline-flex items-center">
-                <Link
-                  className="text-slate-500 dark:text-[#92adc9] hover:text-primary font-medium"
-                  to="/alerts/real-time"
-                  onClick={() => setIncidentsMenuOpen(false)}
-                >
-                  Incidents
-                </Link>
                 <button
                   type="button"
-                  className="ml-1 inline-flex items-center justify-center text-slate-400 dark:text-[#586e84] hover:text-primary dark:hover:text-white transition-colors"
+                  className="text-slate-500 dark:text-[#92adc9] hover:text-primary font-medium"
                   aria-label="Incidents menu"
                   onClick={() => setIncidentsMenuOpen((v) => !v)}
                 >
-                  <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                  Incidents
                 </button>
+                <span className="ml-1 inline-flex items-center justify-center text-slate-400 dark:text-[#586e84]">
+                  <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                </span>
 
                 {incidentsMenuOpen ? (
                   <div className="absolute left-0 top-full mt-2 min-w-52 rounded-lg border border-gray-200 dark:border-[#233648] bg-white dark:bg-[#111a22] shadow-lg z-50 overflow-hidden">

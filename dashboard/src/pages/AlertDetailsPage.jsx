@@ -17,15 +17,12 @@ export default function AlertDetailsPage() {
             <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">SentinelGuard</h2>
           </div>
           <div className="hidden lg:flex items-center gap-9">
-            <a className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">
+            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/dashboard">
               Dashboard
-            </a>
-            <a className="text-white text-sm font-medium leading-normal" href="#">
-              Incidents
-            </a>
-            <a className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">
+            </Link>
+            <Link className="text-white text-sm font-medium leading-normal" to="/alerts/real-time">
               Alerts
-            </a>
+            </Link>
             <a className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" href="#">
               Devices
             </a>
@@ -63,21 +60,17 @@ export default function AlertDetailsPage() {
           {/* Breadcrumbs */}
           <nav className="flex items-center text-sm">
             <div className="relative inline-flex items-center">
-              <Link
-                className="text-text-secondary hover:text-white transition-colors"
-                to="/alerts/real-time"
-                onClick={() => setIncidentsMenuOpen(false)}
-              >
-                Incidents
-              </Link>
               <button
                 type="button"
-                className="ml-1 inline-flex items-center justify-center text-text-secondary hover:text-white transition-colors"
+                className="text-text-secondary hover:text-white transition-colors"
                 aria-label="Incidents menu"
                 onClick={() => setIncidentsMenuOpen((v) => !v)}
               >
-                <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                Incidents
               </button>
+              <span className="ml-1 inline-flex items-center justify-center text-text-secondary">
+                <span className="material-symbols-outlined text-[18px]">expand_more</span>
+              </span>
 
               {incidentsMenuOpen ? (
                 <div className="absolute left-0 top-full mt-2 min-w-52 rounded-lg border border-white/10 bg-surface-dark shadow-lg z-50 overflow-hidden">
