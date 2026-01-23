@@ -1,7 +1,9 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function DashboardOverviewPage() {
+  const navigate = useNavigate()
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <aside className="hidden w-72 flex-col border-r border-[#233648] bg-background-dark lg:flex">
@@ -56,10 +58,6 @@ export default function DashboardOverviewPage() {
                 <span className="material-symbols-outlined">bug_report</span>
                 <span className="text-sm font-medium leading-normal">Honeytokens</span>
               </Link>
-              <a className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors" href="#">
-                <span className="material-symbols-outlined">list_alt</span>
-                <span className="text-sm font-medium leading-normal">Logs</span>
-              </a>
               <Link
                 to="/reports"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
@@ -74,10 +72,14 @@ export default function DashboardOverviewPage() {
               <span className="material-symbols-outlined">settings</span>
               <span className="text-sm font-medium leading-normal">System Settings</span>
             </a>
-            <a className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors" href="#">
+            <button
+              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors text-left"
+              type="button"
+              onClick={() => navigate('/login', { replace: true })}
+            >
               <span className="material-symbols-outlined">logout</span>
               <span className="text-sm font-medium leading-normal">Logout</span>
-            </a>
+            </button>
           </div>
         </div>
       </aside>

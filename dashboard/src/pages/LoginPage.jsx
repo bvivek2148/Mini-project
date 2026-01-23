@@ -1,6 +1,9 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 export default function LoginPage() {
+  const navigate = useNavigate()
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#050b12] text-white">
       <div className="w-full max-w-md rounded-2xl bg-[#111827] border border-[#1f2937] px-8 py-10 shadow-2xl">
@@ -13,7 +16,10 @@ export default function LoginPage() {
             Please authenticate to access the SentinelGuard dashboard.
           </p>
         </div>
-        <form className="space-y-5">
+        <form className="space-y-5" onSubmit={(e) => {
+          e.preventDefault()
+          navigate('/dashboard', { replace: true })
+        }}>
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="email">
               Email Address
