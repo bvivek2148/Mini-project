@@ -1,10 +1,23 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 export default function ReportsPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   return (
     <div className="font-display bg-background-light dark:bg-background-dark text-gray-900 dark:text-white min-h-screen flex overflow-hidden">
+      {sidebarOpen ? (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
+
       {/* SideNavBar */}
-      <aside className="w-64 bg-[#111a22] border-r border-[#233648] hidden md:flex flex-col h-screen shrink-0">
+      <aside
+        className={`w-64 bg-[#111a22] border-r border-[#233648] flex flex-col h-screen shrink-0 fixed md:static inset-y-0 left-0 z-50 transform transition-transform duration-200 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
         <div className="p-6 flex items-center gap-3">
           <div className="bg-primary/20 flex items-center justify-center rounded-lg size-10 text-primary">
             <span className="material-symbols-outlined text-2xl">shield_lock</span>
@@ -15,23 +28,58 @@ export default function ReportsPage() {
           </div>
         </div>
         <nav className="flex-1 px-4 flex flex-col gap-2 mt-4">
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
+          <a
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault()
+              setSidebarOpen(false)
+            }}
+          >
             <span className="material-symbols-outlined group-hover:text-primary transition-colors">bar_chart</span>
             <span className="text-sm font-medium">Dashboard</span>
           </a>
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
+          <a
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault()
+              setSidebarOpen(false)
+            }}
+          >
             <span className="material-symbols-outlined group-hover:text-primary transition-colors">map</span>
             <span className="text-sm font-medium">Real-time Map</span>
           </a>
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
+          <a
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault()
+              setSidebarOpen(false)
+            }}
+          >
             <span className="material-symbols-outlined group-hover:text-primary transition-colors">warning</span>
             <span className="text-sm font-medium">Incidents</span>
           </a>
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary transition-colors" href="#">
+          <a
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary transition-colors"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault()
+              setSidebarOpen(false)
+            }}
+          >
             <span className="material-symbols-outlined fill-1">description</span>
             <span className="text-sm font-medium">Reports</span>
           </a>
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
+          <a
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group"
+            href="#"
+            onClick={(e) => {
+              e.preventDefault()
+              setSidebarOpen(false)
+            }}
+          >
             <span className="material-symbols-outlined group-hover:text-primary transition-colors">settings</span>
             <span className="text-sm font-medium">Settings</span>
           </a>
@@ -59,7 +107,12 @@ export default function ReportsPage() {
         {/* TopNavBar */}
         <header className="flex items-center justify-between border-b border-[#233648] bg-[#111a22]/90 backdrop-blur-md px-6 py-3 shrink-0 z-20">
           <div className="flex items-center gap-4">
-            <button className="md:hidden text-white">
+            <button
+              className="md:hidden text-white"
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open sidebar"
+            >
               <span className="material-symbols-outlined">menu</span>
             </button>
             {/* Breadcrumbs */}

@@ -1,12 +1,25 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 export default function DashboardOverviewPage() {
   const navigate = useNavigate()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <aside className="hidden w-72 flex-col border-r border-[#233648] bg-background-dark lg:flex">
+      {sidebarOpen ? (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
+
+      <aside
+        className={`w-72 flex-col border-r border-[#233648] bg-background-dark flex fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:static lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
         <div className="flex h-full flex-col justify-between p-4">
           <div className="flex flex-col gap-8">
             <div className="flex items-center gap-3 px-2 mt-2">
@@ -26,6 +39,7 @@ export default function DashboardOverviewPage() {
               <Link
                 to="/dashboard"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary text-white transition-colors"
+                onClick={() => setSidebarOpen(false)}
               >
                 <span className="material-symbols-outlined fill-1">dashboard</span>
                 <span className="text-sm font-medium leading-normal">Overview</span>
@@ -33,6 +47,7 @@ export default function DashboardOverviewPage() {
               <Link
                 to="/alerts/R-2024-001"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+                onClick={() => setSidebarOpen(false)}
               >
                 <span className="material-symbols-outlined">warning</span>
                 <span className="text-sm font-medium leading-normal">Incidents</span>
@@ -40,6 +55,7 @@ export default function DashboardOverviewPage() {
               <Link
                 to="/entropy"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+                onClick={() => setSidebarOpen(false)}
               >
                 <span className="material-symbols-outlined text-2xl">ssid_chart</span>
                 <span className="text-sm font-medium leading-normal">Entropy Analysis</span>
@@ -47,6 +63,7 @@ export default function DashboardOverviewPage() {
               <Link
                 to="/network"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+                onClick={() => setSidebarOpen(false)}
               >
                 <span className="material-symbols-outlined">hub</span>
                 <span className="text-sm font-medium leading-normal">Network Topology View</span>
@@ -54,6 +71,7 @@ export default function DashboardOverviewPage() {
               <Link
                 to="/honeytokens/manage"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+                onClick={() => setSidebarOpen(false)}
               >
                 <span className="material-symbols-outlined">bug_report</span>
                 <span className="text-sm font-medium leading-normal">Honeytokens</span>
@@ -61,6 +79,7 @@ export default function DashboardOverviewPage() {
               <Link
                 to="/reports"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+                onClick={() => setSidebarOpen(false)}
               >
                 <span className="material-symbols-outlined">description</span>
                 <span className="text-sm font-medium leading-normal">Reports</span>
@@ -75,7 +94,10 @@ export default function DashboardOverviewPage() {
             <button
               className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors text-left"
               type="button"
-              onClick={() => navigate('/login', { replace: true })}
+              onClick={() => {
+                setSidebarOpen(false)
+                navigate('/login', { replace: true })
+              }}
             >
               <span className="material-symbols-outlined">logout</span>
               <span className="text-sm font-medium leading-normal">Logout</span>
@@ -86,7 +108,12 @@ export default function DashboardOverviewPage() {
       <main className="flex-1 flex flex-col h-full min-w-0 bg-background-light dark:bg-background-dark overflow-hidden">
         <header className="flex items-center justify-between whitespace-nowrap border-b border-[#233648] bg-background-dark px-6 py-4">
           <div className="flex items-center gap-4 lg:gap-8 w-full max-w-2xl">
-            <button className="lg:hidden text-white">
+            <button
+              className="lg:hidden text-white"
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open sidebar"
+            >
               <span className="material-symbols-outlined">menu</span>
             </button>
             <div className="flex items-center gap-3 text-white">

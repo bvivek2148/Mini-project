@@ -13,7 +13,7 @@ export default function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold">Security Command Center</h1>
           <p className="text-sm text-[#9ca3af] text-center">
-            Please authenticate to access the SentinelGuard dashboard.
+            Please authenticate to access the Ransom Trap dashboard.
           </p>
         </div>
         <form className="space-y-5" onSubmit={(e) => {

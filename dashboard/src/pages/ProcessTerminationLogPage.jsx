@@ -12,7 +12,7 @@ export default function ProcessTerminationLogPage() {
             <div className="text-primary size-8 flex items-center justify-center">
               <span className="material-symbols-outlined text-3xl">shield_lock</span>
             </div>
-            <h2 className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight">SentinelGuard</h2>
+            <h2 className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight">Ransom Trap</h2>
           </div>
           <div className="flex flex-1 justify-end gap-8">
             <nav className="hidden lg:flex items-center gap-8">
@@ -118,7 +118,7 @@ export default function ProcessTerminationLogPage() {
                   </span>
                 </div>
                 <p className="text-slate-500 dark:text-[#92adc9] text-base font-normal max-w-2xl">
-                  Audit trail of automated responses to suspicious process activities detected by SentinelGuard engine.
+                  Audit trail of automated responses to suspicious process activities detected by Ransom Trap engine.
                 </p>
               </div>
               <div className="flex gap-3 w-full md:w-auto">

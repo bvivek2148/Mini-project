@@ -327,7 +327,7 @@ export default function ThresholdConfigurationPage() {
 
               {/* Footer */}
               <footer className="mt-12 border-t border-border-dark py-6 text-center text-xs text-text-secondary">
-                <p>© 2023 SentinelGuard Security Systems. All rights reserved.</p>
+                <p>© 2023 Ransom Trap Security Systems. All rights reserved.</p>
                 <p className="mt-1">Version 4.2.0-beta</p>
               </footer>
             </div>

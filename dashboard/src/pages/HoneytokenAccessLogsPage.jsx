@@ -11,7 +11,7 @@ export default function HoneytokenAccessLogsPage() {
           <div className="size-8 text-primary flex items-center justify-center">
             <span className="material-symbols-outlined text-3xl">shield_lock</span>
           </div>
-          <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">SentinelGuard</h2>
+          <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Ransom Trap</h2>
         </div>
         <div className="flex flex-1 justify-end gap-8">
           <div className="hidden md:flex items-center gap-4">

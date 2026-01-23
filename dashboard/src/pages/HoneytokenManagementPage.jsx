@@ -1,18 +1,32 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 export default function HoneytokenManagementPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   return (
     <div className="font-display bg-background-light dark:bg-[#101922] text-gray-900 dark:text-white overflow-hidden">
       <div className="flex h-screen w-full">
+        {sidebarOpen ? (
+          <div
+            className="fixed inset-0 bg-black/60 z-40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        ) : null}
+
         {/* Side Navigation */}
-        <aside className="w-64 h-full flex-col border-r border-[#2d3b4a] bg-[#101922] flex-shrink-0 hidden md:flex">
+        <aside
+          className={`w-64 h-full flex-col border-r border-[#2d3b4a] bg-[#101922] flex-shrink-0 flex fixed md:static inset-y-0 left-0 z-50 transform transition-transform duration-200 ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
+        >
           <div className="p-6 flex items-center gap-3">
             <div className="bg-primary/20 p-2 rounded-lg">
               <span className="material-symbols-outlined text-primary text-2xl">shield</span>
             </div>
             <div className="flex flex-col">
-              <h1 className="text-white text-base font-bold leading-none">CyberGuard</h1>
+              <h1 className="text-white text-base font-bold leading-none">Ransom Trap</h1>
               <span className="text-gray-500 text-xs font-medium mt-1">Admin Console</span>
             </div>
           </div>
@@ -21,6 +35,7 @@ export default function HoneytokenManagementPage() {
             <Link
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group"
               to="/dashboard"
+              onClick={() => setSidebarOpen(false)}
             >
               <span className="material-symbols-outlined text-gray-400 group-hover:text-white">dashboard</span>
               <span className="text-sm font-medium">Dashboard</span>
@@ -28,6 +43,7 @@ export default function HoneytokenManagementPage() {
             <Link
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-white transition-colors"
               to="/honeytokens/manage"
+              onClick={() => setSidebarOpen(false)}
             >
               <span className="material-symbols-outlined text-primary fill-1">bug_report</span>
               <span className="text-sm font-medium">Honeytokens</span>
@@ -35,6 +51,7 @@ export default function HoneytokenManagementPage() {
             <Link
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group"
               to="/honeytokens/logs"
+              onClick={() => setSidebarOpen(false)}
             >
               <span className="material-symbols-outlined text-gray-400 group-hover:text-white">description</span>
               <span className="text-sm font-medium">Logs</span>
@@ -65,10 +82,15 @@ export default function HoneytokenManagementPage() {
           {/* Top Header */}
           <header className="h-16 border-b border-gray-200 dark:border-[#2d3b4a] bg-white dark:bg-[#101922] flex items-center justify-between px-6 md:px-10 shrink-0 z-10">
             <div className="flex items-center md:hidden gap-3">
-              <button className="text-gray-500 dark:text-gray-400 hover:text-primary" type="button">
+              <button
+                className="text-gray-500 dark:text-gray-400 hover:text-primary"
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                aria-label="Open sidebar"
+              >
                 <span className="material-symbols-outlined">menu</span>
               </button>
-              <span className="text-lg font-bold text-gray-900 dark:text-white">CyberGuard</span>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">Ransom Trap</span>
             </div>
 
 

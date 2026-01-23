@@ -1,11 +1,25 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 export default function EntropyAnalysisPage() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   return (
     <div className="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-white overflow-hidden flex h-screen w-full">
+      {sidebarOpen ? (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      ) : null}
+
       {/* Side Navigation */}
-      <aside className="w-64 h-full flex flex-col bg-[#111a22] border-r border-[#233648] shrink-0 z-20">
+      <aside
+        className={`w-64 h-full flex flex-col bg-[#111a22] border-r border-[#233648] shrink-0 z-50 fixed md:static inset-y-0 left-0 transform transition-transform duration-200 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
         <div className="p-6 pb-2">
           <div className="flex flex-col gap-1">
             <h1 className="text-white text-xl font-bold tracking-tight">Ransom Trap</h1>
@@ -28,6 +42,7 @@ export default function EntropyAnalysisPage() {
           <Link
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group"
             to="/config/thresholds"
+            onClick={() => setSidebarOpen(false)}
           >
             <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">policy</span>
             <span className="text-sm font-medium">Entropy Thresholds</span>
@@ -55,6 +70,14 @@ export default function EntropyAnalysisPage() {
         {/* Top Navigation */}
         <header className="h-16 flex items-center justify-between px-8 border-b border-[#233648] bg-[#111a22] shrink-0">
           <div className="flex items-center gap-4">
+            <button
+              className="md:hidden text-[#92adc9] hover:text-white"
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open sidebar"
+            >
+              <span className="material-symbols-outlined">menu</span>
+            </button>
             <span className="material-symbols-outlined text-primary text-3xl">security</span>
             <h2 className="text-white text-lg font-bold tracking-tight">Ransomware Detection Suite</h2>
           </div>

@@ -14,7 +14,7 @@ export default function AlertDetailsPage() {
             <div className="size-8 text-primary">
               <span className="material-symbols-outlined text-4xl">shield_lock</span>
             </div>
-            <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">SentinelGuard</h2>
+            <h2 className="text-white text-lg font-bold leading-tight tracking-[-0.015em]">Ransom Trap</h2>
           </div>
           <div className="hidden lg:flex items-center gap-9">
             <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/dashboard">
