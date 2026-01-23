@@ -1,4 +1,5 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 
 export default function EntropyAnalysisPage() {
   return (
@@ -24,11 +25,13 @@ export default function EntropyAnalysisPage() {
             <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">folder_open</span>
             <span className="text-sm font-medium">File Monitor</span>
           </a>
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
-            <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">notifications</span>
-            <span className="text-sm font-medium">Alerts</span>
-            <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">3</span>
-          </a>
+          <Link
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group"
+            to="/config/thresholds"
+          >
+            <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">policy</span>
+            <span className="text-sm font-medium">Entropy Thresholds</span>
+          </Link>
           <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
             <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">settings</span>
             <span className="text-sm font-medium">Settings</span>

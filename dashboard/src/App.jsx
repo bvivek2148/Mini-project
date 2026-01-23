@@ -4,15 +4,13 @@ import LoginPage from './pages/LoginPage.jsx'
 import RealTimeAlertsPage from './pages/RealTimeAlertsPage.jsx'
 import AlertDetailsPage from './pages/AlertDetailsPage.jsx'
 import EntropyAnalysisPage from './pages/EntropyAnalysisPage.jsx'
+import ThresholdConfigurationPage from './pages/ThresholdConfigurationPage.jsx'
 import NetworkTopologyViewPage from './pages/NetworkTopologyViewPage.jsx'
 import ReportsPage from './pages/ReportsPage.jsx'
 import ProcessTerminationLogPage from './pages/ProcessTerminationLogPage.jsx'
 import HoneytokenManagementPage from './pages/HoneytokenManagementPage.jsx'
-import {
-  HoneytokenAccessLogsPage,
-  UserManagementPage,
-  ThresholdConfigurationPage,
-} from './pages/Placeholders.jsx'
+import HoneytokenAccessLogsPage from './pages/HoneytokenAccessLogsPage.jsx'
+import { UserManagementPage } from './pages/Placeholders.jsx'
 
 function App() {
   return (

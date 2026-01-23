@@ -32,13 +32,13 @@ export default function HoneytokenManagementPage() {
               <span className="material-symbols-outlined text-primary fill-1">bug_report</span>
               <span className="text-sm font-medium">Honeytokens</span>
             </Link>
-            <a
+            <Link
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group"
-              href="#"
+              to="/honeytokens/logs"
             >
               <span className="material-symbols-outlined text-gray-400 group-hover:text-white">description</span>
               <span className="text-sm font-medium">Logs</span>
-            </a>
+            </Link>
           </nav>
 
           <div className="p-4 border-t border-[#2d3b4a]">
