@@ -1,8 +1,23 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAlerts } from '../hooks/useAlerts.js'
+
+function formatSpikeTime(ts) {
+  if (!ts) return '—'
+  return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
 
 export default function EntropyAnalysisPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { alerts, loading } = useAlerts(6000)
+
+  const ransomwareAlerts = alerts.filter(a => a.alert_type === 'ransomware_suspected')
+  const latestRansomware = ransomwareAlerts.length > 0
+    ? ransomwareAlerts[ransomwareAlerts.length - 1]
+    : null
+  const currentEntropy = latestRansomware?.details?.entropy_threshold ?? '—'
+  const spikeTime = formatSpikeTime(latestRansomware?.timestamp)
+  const filesAffected = ransomwareAlerts.length
 
   return (
     <div className="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-white overflow-hidden flex h-screen w-full">
@@ -16,9 +31,8 @@ export default function EntropyAnalysisPage() {
 
       {/* Side Navigation */}
       <aside
-        className={`w-64 h-full flex flex-col bg-[#111a22] border-r border-[#233648] shrink-0 z-50 fixed md:static inset-y-0 left-0 transform transition-transform duration-200 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className={`w-64 h-full flex flex-col bg-[#111a22] border-r border-[#233648] shrink-0 z-50 fixed md:static inset-y-0 left-0 transform transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
       >
         <div className="p-6 pb-2">
           <div className="flex flex-col gap-1">
@@ -141,37 +155,55 @@ export default function EntropyAnalysisPage() {
                 <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <span className="material-symbols-outlined text-6xl text-red-500">warning</span>
                 </div>
-                <p className="text-[#92adc9] text-sm font-medium mb-1">Current Entropy</p>
+                <p className="text-[#92adc9] text-sm font-medium mb-1">Entropy Threshold</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-white text-3xl font-bold">7.8</p>
-                  <span className="text-red-400 text-sm font-bold bg-red-500/10 px-2 py-0.5 rounded">CRITICAL</span>
+                  {loading ? (
+                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                  ) : (
+                    <p className="text-white text-3xl font-bold">{currentEntropy}</p>
+                  )}
+                  {!loading && ransomwareAlerts.length > 0 && (
+                    <span className="text-red-400 text-sm font-bold bg-red-500/10 px-2 py-0.5 rounded">TRIGGERED</span>
+                  )}
                 </div>
-                <p className="text-red-400 text-sm mt-2 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">trending_up</span>
-                  +22% vs 1h ago
+                <p className="text-[#92adc9] text-sm mt-2">
+                  {ransomwareAlerts.length > 0 ? `${ransomwareAlerts.length} detection event(s)` : 'No detections yet'}
                 </p>
               </div>
               <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 relative overflow-hidden">
                 <div className="absolute right-0 top-0 p-4 opacity-10">
                   <span className="material-symbols-outlined text-6xl text-white">timer</span>
                 </div>
-                <p className="text-[#92adc9] text-sm font-medium mb-1">Spike Detected</p>
+                <p className="text-[#92adc9] text-sm font-medium mb-1">Last Spike Detected</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-white text-3xl font-bold">10:42 AM</p>
+                  {loading ? (
+                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                  ) : (
+                    <p className="text-white text-3xl font-bold">{spikeTime}</p>
+                  )}
                 </div>
-                <p className="text-[#92adc9] text-sm mt-2">Duration: 14m 32s</p>
+                <p className="text-[#92adc9] text-sm mt-2">
+                  {latestRansomware ? 'From: ' + (latestRansomware.host || 'unknown host') : 'No spikes recorded'}
+                </p>
               </div>
               <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 relative overflow-hidden">
                 <div className="absolute right-0 top-0 p-4 opacity-10">
                   <span className="material-symbols-outlined text-6xl text-white">folder_zip</span>
                 </div>
-                <p className="text-[#92adc9] text-sm font-medium mb-1">Files Affected</p>
+                <p className="text-[#92adc9] text-sm font-medium mb-1">Detection Events</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-white text-3xl font-bold">142</p>
+                  {loading ? (
+                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                  ) : (
+                    <p className="text-white text-3xl font-bold">{filesAffected}</p>
+                  )}
                 </div>
                 <p className="text-orange-400 text-sm mt-2 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm">priority_high</span>
-                  Requires Review
+                  {filesAffected > 0 ? (
+                    <><span className="material-symbols-outlined text-sm">priority_high</span> Requires Review</>
+                  ) : (
+                    <span className="text-green-400">System clean</span>
+                  )}
                 </p>
               </div>
             </div>

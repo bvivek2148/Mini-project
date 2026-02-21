@@ -1,6 +1,46 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { useAlerts } from '../hooks/useAlerts.js'
+
+function formatTimestamp(ts) {
+  if (!ts) return '—'
+  return new Date(ts * 1000).toLocaleString([], {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  })
+}
+
+function SeverityBadge({ alertType }) {
+  if (alertType === 'ransomware_suspected') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+        CRITICAL
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-500/10 text-orange-500 border border-orange-500/20">
+      <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
+      HIGH
+    </span>
+  )
+}
 
 export default function RealTimeAlertsPage() {
+  const [search, setSearch] = useState('')
+  const { alerts, loading, error } = useAlerts(3000)
+
+  const sortedAlerts = [...alerts].reverse()
+  const filtered = sortedAlerts.filter(a => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      (a.host || '').toLowerCase().includes(q) ||
+      (a.process_name || '').toLowerCase().includes(q) ||
+      (a.alert_type || '').toLowerCase().includes(q) ||
+      (a.path || '').toLowerCase().includes(q)
+    )
+  })
   return (
     <div className="flex h-screen w-full">
       {/* SIDEBAR */}
@@ -75,7 +115,6 @@ export default function RealTimeAlertsPage() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-background-dark">
         {/* Header Section */}
         <header className="flex flex-col px-6 py-6 gap-6 bg-background-dark/95 backdrop-blur z-10 sticky top-0 border-b border-border-dark/50">
@@ -92,7 +131,8 @@ export default function RealTimeAlertsPage() {
                 <span className="material-symbols-outlined text-sm" style={{ fontSize: 16 }}>
                   wifi_tethering
                 </span>
-                Live Feed 9 12 Active Threats Detected
+                Live Feed •{' '}
+                {loading ? 'Connecting…' : error ? <span className="text-red-400">{error}</span> : `${filtered.length} alert(s) shown`}
               </p>
             </div>
             <div className="flex gap-3">
@@ -124,6 +164,8 @@ export default function RealTimeAlertsPage() {
                 className="block w-full rounded-lg border-none bg-[#233648] py-2.5 pl-10 pr-4 text-white placeholder-[#92adc9] focus:ring-2 focus:ring-primary focus:bg-[#2b4257] sm:text-sm transition-all"
                 placeholder="Search IP, Hostname, Threat ID..."
                 type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
               />
             </div>
 
@@ -217,265 +259,77 @@ export default function RealTimeAlertsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-dark bg-[#16202a]">
-                  {/* Critical Row (Selected/Active look) */}
-                  <tr className="hover:bg-[#1e2c3b] group transition-colors cursor-pointer bg-primary/5">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          className="h-4 w-4 rounded border-gray-600 bg-[#233648] text-primary focus:ring-primary focus:ring-offset-[#16202a]"
-                          type="checkbox"
-                          defaultChecked
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
-                        CRITICAL
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
-                      Oct 27, 14:32:01
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">Ransomware: WannaCry</div>
-                      <div className="text-xs text-[#92adc9]">Pattern Match ID: #99281</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-white">FINANCE-SRV-01</div>
-                      <div className="text-xs text-[#92adc9] font-mono">192.168.1.50</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/20">
-                        New
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white font-bold">
-                          --
+                  {loading && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-12 text-center">
+                        <div className="flex items-center justify-center gap-2 text-[#92adc9]">
+                          <span className="material-symbols-outlined animate-spin text-primary">sync</span>
+                          Connecting to server…
                         </div>
-                        <span className="text-sm text-[#92adc9] italic">Unassigned</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-[#92adc9] hover:text-white transition-colors p-1 hover:bg-[#233648] rounded">
-                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                          more_vert
-                        </span>
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* High Row */}
-                  <tr className="hover:bg-[#1e2c3b] group transition-colors cursor-pointer">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          className="h-4 w-4 rounded border-gray-600 bg-[#233648] text-primary focus:ring-primary focus:ring-offset-[#16202a]"
-                          type="checkbox"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-500/10 text-orange-500 border border-orange-500/20">
-                        HIGH
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
-                      Oct 27, 14:15:22
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">Suspicious PowerShell</div>
-                      <div className="text-xs text-[#92adc9]">Encoded Command</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-white">HR-WORKSTATION-04</div>
-                      <div className="text-xs text-[#92adc9] font-mono">192.168.1.112</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                        Investigating
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="bg-center bg-no-repeat bg-cover rounded-full size-6"
-                          data-alt="Analyst avatar"
-                          style={{
-                            backgroundImage:
-                              'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCdQhod51q6e2tmCaJuBCVoxIhZ0x4hVWgCfDGvYnWYeIg_YD4HyFjjs4frvgdah9xGOCWdYjkdMsEalRO7AzKy0ywWrVA8RPlJG2U3NwrhUpZiKla1oM--b_EMAusiIUnfRxZIamzBCHbnzPqPwkrPTKU2Tc5mHXkncn1VHu-qmVIE_mLiLalstYYFqmYT2Xv4wouc7LM7YsTl68D7GUf9D9ahYpd56q6V7qr81fhZ7TFMAClZb6RLaWVxE9OaiuRK8UQ-QR2O58Q")',
-                          }}
-                        />
-                        <span className="text-sm text-gray-300">Alex Chen</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-[#92adc9] hover:text-white transition-colors p-1 hover:bg-[#233648] rounded">
-                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                          more_vert
-                        </span>
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Medium Row */}
-                  <tr className="hover:bg-[#1e2c3b] group transition-colors cursor-pointer">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          className="h-4 w-4 rounded border-gray-600 bg-[#233648] text-primary focus:ring-primary focus:ring-offset-[#16202a]"
-                          type="checkbox"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                        MEDIUM
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
-                      Oct 27, 13:45:05
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">Brute Force Attempt</div>
-                      <div className="text-xs text-[#92adc9]">RDP Port 3389</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-white">GATEWAY-02</div>
-                      <div className="text-xs text-[#92adc9] font-mono">10.0.0.1</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/20">
-                        New
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white font-bold">
-                          --
+                      </td>
+                    </tr>
+                  )}
+                  {!loading && filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center gap-2 text-[#92adc9]">
+                          <span className="material-symbols-outlined text-4xl text-green-500">verified_user</span>
+                          <span>{error ? error : 'No alerts yet — system is clean'}</span>
                         </div>
-                        <span className="text-sm text-[#92adc9] italic">Unassigned</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-[#92adc9] hover:text-white transition-colors p-1 hover:bg-[#233648] rounded">
-                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                          more_vert
-                        </span>
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Low Row */}
-                  <tr className="hover:bg-[#1e2c3b] group transition-colors cursor-pointer">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          className="h-4 w-4 rounded border-gray-600 bg-[#233648] text-primary focus:ring-primary focus:ring-offset-[#16202a]"
-                          type="checkbox"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                        LOW
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
-                      Oct 27, 12:10:11
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">Policy Violation</div>
-                      <div className="text-xs text-[#92adc9]">Unauthorized USB</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-white">DEV-LAPTOP-55</div>
-                      <div className="text-xs text-[#92adc9] font-mono">192.168.1.88</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/20">
-                        Resolved
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="bg-center bg-no-repeat bg-cover rounded-full size-6"
-                          data-alt="Analyst avatar"
-                          style={{
-                            backgroundImage:
-                              'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAXJmfHY2KWTBW8B5va8wCp0Ocng1amysVC2CGtfj3lNqpMl7qmPRW_lX_6ItlfRwRW7RliwcvxSnUXHPEtHL88y4-f0ivdFZwo8d2z8vWlhb7LdfFLDYxyaIuqj5qxDN4vISLw2OlNTwmZTlaXgsnqvvV7gXWbby5TMDHcAJ3jiXK-mpIddS2KKBHR94j-YG7CM92x-9YBv1oymbSj5-Si4JDdFd-a7NJCLRPTPVReGbusVeAIgFYFc1Hc8ne2ocAD5VWVpX_8G6s")',
-                          }}
-                        />
-                        <span className="text-sm text-gray-300">Sarah J.</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-[#92adc9] hover:text-white transition-colors p-1 hover:bg-[#233648] rounded">
-                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                          more_vert
-                        </span>
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Another High Row */}
-                  <tr className="hover:bg-[#1e2c3b] group transition-colors cursor-pointer">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <input
-                          className="h-4 w-4 rounded border-gray-600 bg-[#233648] text-primary focus:ring-primary focus:ring-offset-[#16202a]"
-                          type="checkbox"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-orange-500/10 text-orange-500 border border-orange-500/20">
-                        HIGH
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
-                      Oct 27, 11:55:00
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-white">Unexpected Outbound Traffic</div>
-                      <div className="text-xs text-[#92adc9]">Volume &gt; 5GB</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-white">DB-BACKUP-01</div>
-                      <div className="text-xs text-[#92adc9] font-mono">192.168.1.10</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/20">
-                        New
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white font-bold">
-                          --
+                      </td>
+                    </tr>
+                  )}
+                  {!loading && filtered.map((alert, i) => (
+                    <tr key={i} className="hover:bg-[#1e2c3b] group transition-colors cursor-pointer">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <input className="h-4 w-4 rounded border-gray-600 bg-[#233648] text-primary" type="checkbox" />
                         </div>
-                        <span className="text-sm text-[#92adc9] italic">Unassigned</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button className="text-[#92adc9] hover:text-white transition-colors p-1 hover:bg-[#233648] rounded">
-                        <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                          more_vert
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <SeverityBadge alertType={alert.alert_type} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
+                        {formatTimestamp(alert.timestamp)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-white">
+                          {alert.alert_type === 'ransomware_suspected' ? 'Ransomware Suspected' : 'Honeytoken Access'}
+                        </div>
+                        <div className="text-xs text-[#92adc9]">
+                          {alert.path ? `File: ${alert.path.split('\\').pop() || alert.path.split('/').pop()}` : `PID: ${alert.pid || '—'}`}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-white">{alert.host || '—'}</div>
+                        <div className="text-xs text-[#92adc9] font-mono">{alert.process_name || 'unknown'}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/20">
+                          New
                         </span>
-                      </button>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="h-6 w-6 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white font-bold">--</div>
+                          <span className="text-sm text-[#92adc9] italic">Unassigned</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button className="text-[#92adc9] hover:text-white transition-colors p-1 hover:bg-[#233648] rounded">
+                          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>more_vert</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
 
               {/* Footer / Pagination */}
               <div className="bg-[#16202a] px-6 py-3 border-t border-border-dark flex items-center justify-between">
                 <div className="text-xs text-[#92adc9]">
-                  Showing <span className="text-white font-medium">1-5</span> of{' '}
-                  <span className="text-white font-medium">12</span> alerts
+                  Showing <span className="text-white font-medium">{filtered.length}</span> of{' '}
+                  <span className="text-white font-medium">{alerts.length}</span> alerts
                 </div>
                 <div className="flex gap-2">
                   <button

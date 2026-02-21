@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-import html
-import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .storage import AlertStorage
@@ -18,79 +20,53 @@ ALERTS_FILE = DATA_DIR / "alerts.jsonl"
 DASHBOARD_DIST = BASE_DIR / "dashboard" / "dist"
 
 app = FastAPI(title="Ransom-Trap Alert Server")
+
+# Allow the Vite dev server (localhost:5173) to call the API without CORS errors
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 storage = AlertStorage(ALERTS_FILE)
+
+# Agent process handle (managed by /agent/start and /agent/stop)
+_agent_process: subprocess.Popen | None = None
+
+
+def _agent_running() -> bool:
+    """Return True if the agent subprocess is alive."""
+    return _agent_process is not None and _agent_process.poll() is None
+
 
 # Serve built React SPA static assets if available
 if DASHBOARD_DIST.exists():
     app.mount("/assets", StaticFiles(directory=DASHBOARD_DIST / "assets"), name="assets")
 
 
-@app.get("/", response_class=HTMLResponse)
-async def index() -> str:
-    """Serve the React dashboard SPA entrypoint if built, otherwise fall back to simple HTML."""
-    index_html = DASHBOARD_DIST / "index.html"
-    if index_html.exists():
-        return index_html.read_text(encoding="utf-8")
+# ------------------------------------------------------------------
+# Root — redirect to the dashboard (no more raw HTML table)
+# ------------------------------------------------------------------
 
-    # Fallback: simple HTML table of alerts if SPA is not built yet
-    alerts: List[Dict[str, Any]] = list(reversed(storage.get_alerts()))
-    rows = []
-    for a in alerts:
-        atype = html.escape(str(a.get("alert_type")))
-        host = html.escape(str(a.get("host")))
-        proc = html.escape(str(a.get("process_name")))
-        pid = html.escape(str(a.get("pid")))
-        ts = html.escape(str(a.get("timestamp")))
-        path = html.escape(str(a.get("path", "")))
-        rows.append(
-            f"<tr><td>{atype}</td><td>{host}</td><td>{proc}</td><td>{pid}</td><td>{ts}</td><td>{path}</td></tr>"
-        )
+@app.get("/", include_in_schema=False)
+async def index() -> Response:
+    """Redirect to the React dashboard (dev: localhost:5173, prod: /dashboard)."""
+    dash_html = DASHBOARD_DIST / "index.html"
+    if dash_html.exists():
+        from fastapi.responses import HTMLResponse
+        return HTMLResponse(dash_html.read_text(encoding="utf-8"))
+    # Dev mode: redirect to the Vite dev server
+    return RedirectResponse(url="http://localhost:5173/dashboard", status_code=302)
 
-    body = "".join(rows) or "<tr><td colspan='6'><em>No alerts yet</em></td></tr>"
 
-    html_doc = f"""
-    <html>
-      <head>
-        <title>Ransom-Trap Alerts</title>
-        <style>
-          body {{ font-family: Arial, sans-serif; }}
-          table {{ border-collapse: collapse; width: 100%; }}
-          th, td {{ border: 1px solid #ccc; padding: 4px 8px; font-size: 13px; }}
-          th {{ background-color: #f0f0f0; }}
-        </style>
-      </head>
-      <body>
-        <h1>Ransom-Trap Alerts</h1>
-        <table>
-          <thead>
-            <tr>
-              <th>Type</th>
-              <th>Host</th>
-              <th>Process</th>
-              <th>PID</th>
-              <th>Timestamp</th>
-              <th>Path</th>
-            </tr>
-          </thead>
-          <tbody>
-            {body}
-          </tbody>
-        </table>
-      </body>
-    </html>
-    """
-    return html_doc
-
+# ------------------------------------------------------------------
+# Alerts API
+# ------------------------------------------------------------------
 
 @app.get("/alerts", response_class=JSONResponse)
 async def list_alerts() -> List[Dict[str, Any]]:
     return storage.get_alerts()
-
-
-@app.get("/favicon.ico")
-async def favicon() -> Response:
-    # Return an empty 204 response so browsers stop logging 404s for the favicon.
-    return Response(status_code=204)
 
 
 @app.post("/alerts", response_class=JSONResponse)
@@ -98,6 +74,57 @@ async def create_alert(request: Request) -> Dict[str, Any]:
     data = await request.json()
     if not isinstance(data, dict):
         return {"status": "error", "message": "Alert payload must be a JSON object"}
-
     storage.add_alert(data)
     return {"status": "ok"}
+
+
+@app.get("/favicon.ico")
+async def favicon() -> Response:
+    return Response(status_code=204)
+
+
+# ------------------------------------------------------------------
+# Agent control API
+# ------------------------------------------------------------------
+
+@app.get("/agent/status", response_class=JSONResponse)
+async def agent_status() -> Dict[str, Any]:
+    """Return whether the agent process is currently running."""
+    running = _agent_running()
+    return {"running": running, "pid": _agent_process.pid if running else None}
+
+
+@app.post("/agent/start", response_class=JSONResponse)
+async def agent_start() -> Dict[str, Any]:
+    """Start the agent subprocess if it is not already running."""
+    global _agent_process
+    if _agent_running():
+        return {"status": "already_running", "pid": _agent_process.pid}
+
+    config_path = BASE_DIR / "config" / "config.yaml"
+    cmd = [sys.executable, "-m", "agent.agent_main", "--config", str(config_path)]
+    _agent_process = subprocess.Popen(
+        cmd,
+        cwd=str(BASE_DIR),
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return {"status": "started", "pid": _agent_process.pid}
+
+
+@app.post("/agent/stop", response_class=JSONResponse)
+async def agent_stop() -> Dict[str, Any]:
+    """Stop the agent subprocess if it is running."""
+    global _agent_process
+    if not _agent_running():
+        return {"status": "not_running"}
+
+    pid = _agent_process.pid
+    _agent_process.terminate()
+    try:
+        _agent_process.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        _agent_process.kill()
+        _agent_process.wait()
+    _agent_process = None
+    return {"status": "stopped", "pid": pid}

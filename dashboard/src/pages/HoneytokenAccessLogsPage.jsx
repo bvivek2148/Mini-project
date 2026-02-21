@@ -1,8 +1,21 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAlerts } from '../hooks/useAlerts.js'
+
+function formatTimestamp(ts) {
+  if (!ts) return '—'
+  return new Date(ts * 1000).toLocaleString([], {
+    month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  })
+}
 
 export default function HoneytokenAccessLogsPage() {
   const navigate = useNavigate()
+  const { alerts, loading, error } = useAlerts(5000)
+  const honeytokenAlerts = [...alerts]
+    .filter(a => a.alert_type === 'honeytoken_access')
+    .reverse()
   return (
     <div className="bg-background-light dark:bg-background-dark h-screen overflow-y-auto flex flex-col font-display text-white">
       {/* Top Navigation */}
@@ -127,154 +140,69 @@ export default function HoneytokenAccessLogsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-dark">
-                {/* Row 1: Critical */}
-                <tr className="group hover:bg-surface-dark/30 transition-colors">
-                  <td className="pl-6 py-4">
-                    <div className="h-8 w-1 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="font-mono text-white text-sm">192.168.1.45</span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-5 h-3.5 rounded-[2px] overflow-hidden bg-cover bg-center"
-                        data-alt="Russian flag icon"
-                        data-location="Russia"
-                        style={{
-                          backgroundImage:
-                            "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBzurmod8qhswpbuhcOeN9iXeE9pT4CoJk8gS-kaTBFEumRejVNmHR-9ixnj_hFsSygK3YclztO2ydp2ti-Zmx5n-I8cdPSu5AoQKblT-9xNY28IuA2jgT7Sr1p89tl7UVXYGTAWgT9pUJEBVK_u--tcnylOCfLqoVCUiR06_2Ze4xSuxeqmQLEtUVYsMZtDPhBqaPdJ0oOLcPpPT-wr9YpETVOJPS6YIeD_dQ6mKaYXy8i0Ybp0kEDER-Qrx0MwI-3csKV41bGypU')",
-                        }}
-                      />
-                      <span className="text-sm text-white">Moscow, RU</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2 text-white">
-                      <span className="material-symbols-outlined text-text-secondary text-[18px]">lock</span>
-                      <span className="text-sm font-medium">passwords_Q3.xlsx</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 max-w-[200px]">
-                    <p
-                      className="truncate text-sm text-text-secondary"
-                      title="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                    >
-                      Mozilla/5.0 (Windows NT 10.0...
-                    </p>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="font-mono text-sm text-text-secondary">2023-10-24 14:32:01</span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                      CRITICAL
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 pr-6 text-right">
-                    <button className="text-text-secondary hover:text-white p-1 rounded hover:bg-surface-dark transition-colors" type="button">
-                      <span className="material-symbols-outlined">more_vert</span>
-                    </button>
-                  </td>
-                </tr>
-
-                {/* Row 2: Warning */}
-                <tr className="group hover:bg-surface-dark/30 transition-colors bg-surface-dark/10">
-                  <td className="pl-6 py-4">
-                    <div className="h-8 w-1 bg-yellow-500 rounded-full" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="font-mono text-white text-sm">45.22.19.112</span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-5 h-3.5 rounded-[2px] overflow-hidden bg-cover bg-center"
-                        data-alt="China flag icon"
-                        data-location="China"
-                        style={{
-                          backgroundImage:
-                            "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBFB1__GWLokd3b8IyzOU7VnaUKfT2-STq58YPJx3eV0D1EZDFJiCfqQ_ls6YHRPrib3jl1Q00QZ38kKfxS3dzgqu5WAPVzs2R3rvPy-W_mbsVnsEGertPaS0VvpULBhu87v5cLF4ONXoWMsTOvbtAcGb434MHchQIBnhcZWBOCoW_45DmBPliHzGPwjyYNuisKrttP8kPs7ycfG3O5Oh7VfU9KD6hKnixAOAIBrsm_EJxV0M36QYTEmjZ61GA0HA7TxwR8_cOdisM')",
-                        }}
-                      />
-                      <span className="text-sm text-white">Beijing, CN</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2 text-white">
-                      <span className="material-symbols-outlined text-text-secondary text-[18px]">description</span>
-                      <span className="text-sm font-medium">financial_report_2023.pdf</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 max-w-[200px]">
-                    <p className="truncate text-sm text-text-secondary" title="curl/7.64.1">
-                      curl/7.64.1
-                    </p>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="font-mono text-sm text-text-secondary">2023-10-24 14:28:45</span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-bold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
-                      SUSPICIOUS
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 pr-6 text-right">
-                    <button className="text-text-secondary hover:text-white p-1 rounded hover:bg-surface-dark transition-colors" type="button">
-                      <span className="material-symbols-outlined">more_vert</span>
-                    </button>
-                  </td>
-                </tr>
-
-                {/* Row 3: Info */}
-                <tr className="group hover:bg-surface-dark/30 transition-colors">
-                  <td className="pl-6 py-4">
-                    <div className="h-8 w-1 bg-primary rounded-full" />
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="font-mono text-white text-sm">10.0.0.5</span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-5 h-3.5 rounded-[2px] overflow-hidden bg-cover bg-center"
-                        data-alt="USA flag icon"
-                        data-location="USA"
-                        style={{
-                          backgroundImage:
-                            "url('https://lh3.googleusercontent.com/aida-public/AB6AXuCehvMSv-v1QrP-SRXlaebK9BO4JIPVbGhM00lyBOx_Tm_L5JKt3sFpHLDtZxH-iV6gZQABGh9EZugp9o7814SuVacdCj4Odxakzd645L8Qeg8ofK2X9E3A3W_w2MV4RWa-Fy_i1Rl9M-aXZTCe-HQCcuwf9ADrrDrre1rN3WcvMukmefvGmP9XOCrcI8J6gHQntIc1aJ4_2c3orpqVTYa-fCrT7u41_ZQhZEbafco40j6bEXZUBz2NgquFmoxxO3VW6jeb6uujOSM')",
-                        }}
-                      />
-                      <span className="text-sm text-white">Internal Network</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-2 text-white">
-                      <span className="material-symbols-outlined text-text-secondary text-[18px]">folder_open</span>
-                      <span className="text-sm font-medium">shared_drive_backup</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4 max-w-[200px]">
-                    <p className="truncate text-sm text-text-secondary" title="python-requests/2.25.1">
-                      python-requests/2.25.1
-                    </p>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="font-mono text-sm text-text-secondary">2023-10-24 14:15:22</span>
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-bold bg-primary/10 text-primary border border-primary/20">
-                      INFO
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 pr-6 text-right">
-                    <button className="text-text-secondary hover:text-white p-1 rounded hover:bg-surface-dark transition-colors" type="button">
-                      <span className="material-symbols-outlined">more_vert</span>
-                    </button>
-                  </td>
-                </tr>
+                {loading && (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex items-center justify-center gap-2 text-[#92adc9]">
+                        <span className="material-symbols-outlined animate-spin text-primary">sync</span>
+                        Connecting to server…
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {!loading && honeytokenAlerts.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-2 text-[#92adc9]">
+                        <span className="material-symbols-outlined text-4xl text-green-500">verified_user</span>
+                        <span>{error || 'No honeytoken accesses detected — system is clean'}</span>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {!loading && honeytokenAlerts.map((alert, i) => {
+                  const filename = alert.path
+                    ? (alert.path.split('\\').pop() || alert.path.split('/').pop() || alert.path)
+                    : '—'
+                  return (
+                    <tr key={i} className="group hover:bg-surface-dark/30 transition-colors">
+                      <td className="pl-6 py-4">
+                        <div className="h-8 w-1 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="font-mono text-white text-sm">{alert.host || '—'}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm text-[#92adc9]">Local endpoint</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2 text-white">
+                          <span className="material-symbols-outlined text-text-secondary text-[18px]">lock</span>
+                          <span className="text-sm font-medium">{filename}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4 max-w-[200px]">
+                        <p className="truncate text-sm text-text-secondary">
+                          {alert.process_name || '—'} (PID: {alert.pid || '?'})
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="font-mono text-sm text-text-secondary">{formatTimestamp(alert.timestamp)}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-bold bg-red-500/10 text-red-500 border border-red-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                          CRITICAL
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 pr-6 text-right">
+                        <button className="text-text-secondary hover:text-white p-1 rounded hover:bg-surface-dark transition-colors" type="button">
+                          <span className="material-symbols-outlined">more_vert</span>
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -290,7 +218,7 @@ export default function HoneytokenAccessLogsPage() {
               </select>
             </div>
             <div className="flex items-center gap-4">
-              <p className="text-xs text-text-secondary">1-10 of 145</p>
+              <p className="text-xs text-text-secondary">1-{honeytokenAlerts.length} of {honeytokenAlerts.length}</p>
               <div className="flex items-center gap-1">
                 <button className="flex items-center justify-center size-8 rounded hover:bg-surface-dark text-text-secondary disabled:opacity-50" type="button" disabled>
                   <span className="material-symbols-outlined text-lg">chevron_left</span>

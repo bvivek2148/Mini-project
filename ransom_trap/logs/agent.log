@@ -45,3 +45,28 @@
 2026-01-13 18:20:05,416 [INFO] ransom_trap.agent: ALERT: {"alert_type": "honeytoken_access", "host": "VIKKY7082", "pid": null, "process_name": null, "timestamp": 1768308605.416449, "path": "D:\\Delete folder-C\\Mini project\\test_files\\Desktop\\bank_logins.txt"}
 2026-01-13 18:20:26,383 [INFO] ransom_trap.agent: ALERT: {"alert_type": "honeytoken_access", "host": "VIKKY7082", "pid": null, "process_name": null, "timestamp": 1768308626.3830175, "path": "D:\\Delete folder-C\\Mini project\\test_files\\Documents\\bank_logins.txt"}
 2026-01-13 18:39:04,425 [INFO] ransom_trap.agent: Stopping Ransom-Trap agent (KeyboardInterrupt)
+2026-02-21 20:48:47,876 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config config/config.yaml
+2026-02-21 20:48:47,895 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
+2026-02-21 20:48:47,896 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\documents\budget_2024.pdf
+2026-02-21 20:49:08,819 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config config/config.yaml
+2026-02-21 20:49:08,824 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
+2026-02-21 20:49:08,825 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\documents\passwords.xlsx
+2026-02-21 20:49:24,580 [INFO] ransom_trap.agent: ALERT: {"alert_type": "honeytoken_access", "host": "VIKKY7082", "pid": null, "process_name": null, "timestamp": 1771687164.5794067, "path": "d:\\delete folder-c\\mini project\\test_files\\documents\\passwords.xlsx"}
+2026-02-21 20:49:24,646 [INFO] ransom_trap.agent: Watching path: D:\Delete folder-C\Mini project\test_files\Desktop
+2026-02-21 20:49:24,647 [INFO] ransom_trap.agent: Watching path: D:\Delete folder-C\Mini project\test_files\Documents
+2026-02-21 20:49:24,650 [INFO] ransom_trap.agent: Ransom-Trap agent is now monitoring 2 path(s)
+2026-02-21 21:20:50,407 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config D:\Delete folder-C\Mini project\ransom_trap\config\config.yaml
+2026-02-21 21:20:50,438 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
+2026-02-21 21:20:50,438 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\desktop\bank_logins.txt
+2026-02-21 21:22:54,214 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config D:\Delete folder-C\Mini project\ransom_trap\config\config.yaml
+2026-02-21 21:22:54,231 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
+2026-02-21 21:22:54,232 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\documents\bank_logins.txt
+2026-02-21 21:23:02,684 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config D:\Delete folder-C\Mini project\ransom_trap\config\config.yaml
+2026-02-21 21:23:02,792 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
+2026-02-21 21:23:02,793 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\documents\bank_logins.txt
+2026-02-21 21:24:09,273 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config D:\Delete folder-C\Mini project\ransom_trap\config\config.yaml
+2026-02-21 21:24:09,277 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
+2026-02-21 21:24:09,278 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\desktop\passwords.xlsx
+2026-02-21 21:25:31,355 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config D:\Delete folder-C\Mini project\ransom_trap\config\config.yaml
+2026-02-21 21:25:31,362 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
+2026-02-21 21:25:31,363 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\desktop\passwords.xlsx

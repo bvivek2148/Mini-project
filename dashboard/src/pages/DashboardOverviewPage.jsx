@@ -1,9 +1,58 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAlerts } from '../hooks/useAlerts.js'
+import { fetchAgentStatus, agentStart, agentStop } from '../api.js'
+
+function formatTs(ts) {
+  if (!ts) return '—'
+  const d = new Date(ts * 1000)
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
 
 export default function DashboardOverviewPage() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { alerts, loading, error } = useAlerts(5000)
+
+  // Agent start/stop state
+  const [agentRunning, setAgentRunning] = useState(false)
+  const [agentToggling, setAgentToggling] = useState(false)
+
+  // Poll agent status every 5 seconds
+  React.useEffect(() => {
+    let cancelled = false
+    async function pollStatus() {
+      try {
+        const s = await fetchAgentStatus()
+        if (!cancelled) setAgentRunning(s.running)
+      } catch { /* server may not be up yet */ }
+    }
+    pollStatus()
+    const id = setInterval(pollStatus, 5000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  async function handleAgentToggle() {
+    if (agentToggling) return
+    setAgentToggling(true)
+    try {
+      if (agentRunning) {
+        await agentStop()
+        setAgentRunning(false)
+      } else {
+        await agentStart()
+        setAgentRunning(true)
+      }
+    } catch (e) {
+      console.error('Agent toggle failed:', e)
+    } finally {
+      setAgentToggling(false)
+    }
+  }
+
+  const ransomwareAlerts = alerts.filter(a => a.alert_type === 'ransomware_suspected')
+  const honeytokenAlerts = alerts.filter(a => a.alert_type === 'honeytoken_access')
+  const recentAlerts = [...alerts].reverse().slice(0, 3)
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -16,9 +65,8 @@ export default function DashboardOverviewPage() {
       ) : null}
 
       <aside
-        className={`w-72 flex-col border-r border-[#233648] bg-background-dark flex fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:static lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
+        className={`w-72 flex-col border-r border-[#233648] bg-background-dark flex fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          }`}
       >
         <div className="flex h-full flex-col justify-between p-4">
           <div className="flex flex-col gap-8">
@@ -152,23 +200,44 @@ export default function DashboardOverviewPage() {
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden sm:flex items-center gap-2">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-l bg-green-500/10 border border-green-500/20 h-9 border-r-0">
-                <div className="size-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-                <span className="text-xs font-bold text-green-500 tracking-wider">ONLINE</span>
+              {/* ONLINE / OFFLINE badge */}
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-l border h-9 border-r-0 transition-colors ${agentRunning
+                  ? 'bg-green-500/10 border-green-500/20'
+                  : 'bg-red-500/10 border-red-500/20'
+                }`}>
+                <div className={`size-2 rounded-full ${agentRunning
+                    ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse'
+                    : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
+                  }`} />
+                <span className={`text-xs font-bold tracking-wider ${agentRunning ? 'text-green-500' : 'text-red-400'
+                  }`}>
+                  {agentRunning ? 'ONLINE' : 'OFFLINE'}
+                </span>
               </div>
+              {/* STOP / START toggle */}
               <div className="flex items-center gap-2 px-3 py-1 rounded-r bg-[#233648] border border-[#334b63] h-9 border-l-0">
-                <span className="text-[9px] font-bold text-[#92adc9] px-1 uppercase">Stop</span>
+                <span className={`text-[9px] font-bold px-1 uppercase ${!agentRunning ? 'text-white' : 'text-[#92adc9]'
+                  }`}>Stop</span>
                 <button
-                  aria-checked="true"
-                  className="group relative inline-flex h-4 w-8 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none bg-primary hover:bg-red-500"
+                  aria-checked={agentRunning}
+                  aria-label={agentRunning ? 'Stop agent' : 'Start agent'}
+                  disabled={agentToggling}
+                  onClick={handleAgentToggle}
+                  className={`group relative inline-flex h-4 w-8 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent
+                    transition-colors duration-200 ease-in-out focus:outline-none
+                    disabled:opacity-60 disabled:cursor-wait
+                    ${agentRunning ? 'bg-primary hover:bg-red-500' : 'bg-[#334b63] hover:bg-green-600'}`}
                   role="switch"
                 >
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none inline-block h-3 w-3 translate-x-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out group-hover:translate-x-0"
+                    className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0
+                      transition duration-200 ease-in-out
+                      ${agentRunning ? 'translate-x-4' : 'translate-x-0'}`}
                   />
                 </button>
-                <span className="text-[9px] font-bold text-white px-1 uppercase">Start</span>
+                <span className={`text-[9px] font-bold px-1 uppercase ${agentRunning ? 'text-white' : 'text-[#92adc9]'
+                  }`}>Start</span>
               </div>
             </div>
             <div className="h-8 w-px bg-[#233648] mx-1 hidden sm:block" />
@@ -211,63 +280,90 @@ export default function DashboardOverviewPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Active Threats card — LIVE */}
               <div className="flex flex-col gap-3 rounded-xl p-6 bg-[#233648] border-l-4 border-red-500 relative overflow-hidden group">
                 <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <span className="material-symbols-outlined text-6xl text-red-500">security</span>
                 </div>
                 <div className="flex justify-between items-start">
                   <p className="text-[#92adc9] text-sm font-semibold uppercase tracking-wider">Active Threats</p>
-                  <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded font-bold">+1 NEW</span>
+                  {ransomwareAlerts.length > 0 && (
+                    <span className="bg-red-500/20 text-red-400 text-xs px-2 py-0.5 rounded font-bold animate-pulse">LIVE</span>
+                  )}
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-white text-4xl font-bold tracking-tight">3</p>
-                  <span className="text-red-500 text-sm font-medium flex items-center">
-                    <span className="material-symbols-outlined text-sm">arrow_upward</span> 12%
-                  </span>
+                  {loading ? (
+                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                  ) : (
+                    <p className="text-white text-4xl font-bold tracking-tight">{ransomwareAlerts.length}</p>
+                  )}
+                </div>
+                {error && <p className="text-xs text-red-400 truncate">{error}</p>}
+              </div>
+              {/* Honeytoken Hits card — LIVE */}
+              <div className="flex flex-col gap-3 rounded-xl p-6 bg-[#233648] border-l-4 border-orange-500 relative overflow-hidden group">
+                <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <span className="material-symbols-outlined text-6xl text-orange-500">bug_report</span>
+                </div>
+                <div className="flex justify-between items-start">
+                  <p className="text-[#92adc9] text-sm font-semibold uppercase tracking-wider">Honeytoken Hits</p>
+                  {honeytokenAlerts.length > 0 && (
+                    <span className="bg-orange-500/20 text-orange-400 text-xs px-2 py-0.5 rounded font-bold">!</span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-2">
+                  {loading ? (
+                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                  ) : (
+                    <p className="text-white text-4xl font-bold tracking-tight">{honeytokenAlerts.length}</p>
+                  )}
                 </div>
               </div>
+              {/* Total Alerts card — LIVE */}
+              <div className="flex flex-col gap-3 rounded-xl p-6 bg-[#233648] border-l-4 border-primary relative overflow-hidden group">
+                <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                  <span className="material-symbols-outlined text-6xl text-primary">notifications_active</span>
+                </div>
+                <div className="flex justify-between items-start">
+                  <p className="text-[#92adc9] text-sm font-semibold uppercase tracking-wider">Total Alerts</p>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  {loading ? (
+                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                  ) : (
+                    <p className="text-white text-4xl font-bold tracking-tight">{alerts.length}</p>
+                  )}
+                </div>
+              </div>
+              {/* Agent Status live card */}
               <div className="flex flex-col gap-3 rounded-xl p-6 bg-[#233648] border-l-4 border-green-500 relative overflow-hidden group">
                 <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                   <span className="material-symbols-outlined text-6xl text-green-500">verified_user</span>
                 </div>
                 <div className="flex justify-between items-start">
-                  <p className="text-[#92adc9] text-sm font-semibold uppercase tracking-wider">Protected</p>
-                  <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded font-bold">STABLE</span>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-white text-4xl font-bold tracking-tight">1,420</p>
-                  <span className="text-green-500 text-sm font-medium flex items-center">
-                    <span className="material-symbols-outlined text-sm">add</span> 5
+                  <p className="text-[#92adc9] text-sm font-semibold uppercase tracking-wider">Agent Status</p>
+                  <span className={`text-xs px-2 py-0.5 rounded font-bold ${error ? 'bg-red-500/20 text-red-400'
+                      : agentRunning ? 'bg-green-500/20 text-green-400'
+                        : 'bg-red-500/20 text-red-400'
+                    }`}>
+                    {error ? 'SERVER ERROR' : agentRunning ? 'ONLINE' : 'OFFLINE'}
                   </span>
                 </div>
-              </div>
-              <div className="flex flex-col gap-3 rounded-xl p-6 bg-[#233648] border-l-4 border-primary relative overflow-hidden group">
-                <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <span className="material-symbols-outlined text-6xl text-primary">block</span>
-                </div>
-                <div className="flex justify-between items-start">
-                  <p className="text-[#92adc9] text-sm font-semibold uppercase tracking-wider">Blocked (24h)</p>
-                </div>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-white text-4xl font-bold tracking-tight">12</p>
-                  <span className="text-primary text-sm font-medium flex items-center">
-                    <span className="material-symbols-outlined text-sm">arrow_upward</span> 2
-                  </span>
+                  <p className="text-white text-lg font-bold tracking-tight">
+                    {error ? 'Server unreachable' : agentRunning ? 'Monitoring active' : 'Agent stopped'}
+                  </p>
                 </div>
-              </div>
-              <div className="flex flex-col gap-3 rounded-xl p-6 bg-[#233648] border-l-4 border-orange-500 relative overflow-hidden group">
-                <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <span className="material-symbols-outlined text-6xl text-orange-500">timer</span>
-                </div>
-                <div className="flex justify-between items-start">
-                  <p className="text-[#92adc9] text-sm font-semibold uppercase tracking-wider">Avg Response Time</p>
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <p className="text-white text-4xl font-bold tracking-tight">4m 32s</p>
-                  <span className="text-green-500 text-sm font-medium flex items-center">
-                    <span className="material-symbols-outlined text-sm">arrow_downward</span> 12s
-                  </span>
-                </div>
+                <button
+                  onClick={handleAgentToggle}
+                  disabled={agentToggling}
+                  className={`mt-1 self-start text-xs font-bold px-3 py-1 rounded transition-colors disabled:opacity-60 ${agentRunning
+                      ? 'bg-red-500/20 text-red-400 hover:bg-red-500/40'
+                      : 'bg-green-500/20 text-green-400 hover:bg-green-500/40'
+                    }`}
+                >
+                  {agentToggling ? 'Please wait…' : agentRunning ? 'Stop Agent' : 'Start Agent'}
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -345,61 +441,59 @@ export default function DashboardOverviewPage() {
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  <div className="group flex gap-3 p-4 border-b border-[#334b63] hover:bg-[#2a4055] transition-all cursor-pointer">
-                    <div className="mt-1">
-                      <div className="flex items-center justify-center size-8 rounded bg-red-500/10 text-red-500 group-hover:bg-red-500 group-hover:text-white transition-colors">
-                        <span className="material-symbols-outlined text-lg">bug_report</span>
-                      </div>
+                  {loading && (
+                    <div className="flex items-center justify-center p-8 text-[#92adc9] text-sm">
+                      <span className="material-symbols-outlined animate-spin mr-2 text-primary">sync</span>
+                      Connecting to server…
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="justify-between items-start mb-0.5 flex">
-                        <h4 className="text-white text-sm font-semibold truncate pr-2">Ransomware Blocked</h4>
-                        <span className="text-[#92adc9] text-[10px] whitespace-nowrap font-mono">10s ago</span>
-                      </div>
-                      <p className="text-[#92adc9] text-xs truncate">
-                        Host: <span className="text-white/70">FIN-SRV-01</span> • <span className="text-red-400">High Severity</span>
-                      </p>
+                  )}
+                  {!loading && recentAlerts.length === 0 && (
+                    <div className="flex flex-col items-center justify-center p-8 text-[#92adc9] text-sm gap-2">
+                      <span className="material-symbols-outlined text-3xl text-green-500">verified_user</span>
+                      No alerts yet
                     </div>
-                  </div>
-                  <div className="group flex gap-3 p-4 border-b border-[#334b63] hover:bg-[#2a4055] transition-all cursor-pointer">
-                    <div className="mt-1">
-                      <div className="flex items-center justify-center size-8 rounded bg-orange-500/10 text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                        <span className="material-symbols-outlined text-lg">warning</span>
+                  )}
+                  {recentAlerts.map((alert, i) => {
+                    const isRansomware = alert.alert_type === 'ransomware_suspected'
+                    return (
+                      <div key={i} className="group flex gap-3 p-4 border-b border-[#334b63] hover:bg-[#2a4055] transition-all cursor-pointer">
+                        <div className="mt-1">
+                          <div className={`flex items-center justify-center size-8 rounded transition-colors ${isRansomware
+                            ? 'bg-red-500/10 text-red-500 group-hover:bg-red-500 group-hover:text-white'
+                            : 'bg-orange-500/10 text-orange-500 group-hover:bg-orange-500 group-hover:text-white'
+                            }`}>
+                            <span className="material-symbols-outlined text-lg">
+                              {isRansomware ? 'bug_report' : 'key'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="justify-between items-start mb-0.5 flex">
+                            <h4 className="text-white text-sm font-semibold truncate pr-2">
+                              {isRansomware ? 'Ransomware Suspected' : 'Honeytoken Accessed'}
+                            </h4>
+                            <span className="text-[#92adc9] text-[10px] whitespace-nowrap font-mono">
+                              {formatTs(alert.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-[#92adc9] text-xs truncate">
+                            Host: <span className="text-white/70">{alert.host || '—'}</span>
+                            {alert.process_name && (
+                              <> • <span className={isRansomware ? 'text-red-400' : 'text-orange-400'}>{alert.process_name}</span></>
+                            )}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="justify-between items-start mb-0.5 flex">
-                        <h4 className="text-white text-sm font-semibold truncate pr-2">Unauthorized Access</h4>
-                        <span className="text-[#92adc9] text-[10px] whitespace-nowrap font-mono">45s ago</span>
-                      </div>
-                      <p className="text-[#92adc9] text-xs truncate">
-                        Host: <span className="text-white/70">VPN-Gateway</span> •{' '}
-                        <span className="text-orange-400">Suspicious</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="group flex gap-3 p-4 border-b border-[#334b63] hover:bg-[#2a4055] transition-all cursor-pointer">
-                    <div className="mt-1">
-                      <div className="flex items-center justify-center size-8 rounded bg-blue-500/10 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                        <span className="material-symbols-outlined text-lg">policy</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="justify-between items-start mb-0.5 flex">
-                        <h4 className="text-white text-sm font-semibold truncate pr-2">Policy Updated</h4>
-                        <span className="text-[#92adc9] text-[10px] whitespace-nowrap font-mono">3m ago</span>
-                      </div>
-                      <p className="text-[#92adc9] text-xs truncate">
-                        System: <span className="text-white/70">Global Policy</span> •{' '}
-                        <span className="text-blue-400">Info</span>
-                      </p>
-                    </div>
-                  </div>
+                    )
+                  })}
                 </div>
                 <div className="p-3 bg-[#1e2e3e] border-t border-[#334b63] text-center">
-                  <button className="text-xs text-primary font-bold hover:text-white transition-colors uppercase tracking-wide">
+                  <Link
+                    to="/alerts/real-time"
+                    className="text-xs text-primary font-bold hover:text-white transition-colors uppercase tracking-wide"
+                  >
                     View Full Feed
-                  </button>
+                  </Link>
                 </div>
               </div>
               <div className="xl:col-span-3 flex flex-col rounded-xl bg-[#233648] shadow-sm overflow-hidden h-full">
