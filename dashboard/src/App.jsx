@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import DashboardOverviewPage from './pages/DashboardOverviewPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
 import RealTimeAlertsPage from './pages/RealTimeAlertsPage.jsx'
-import AlertDetailsPage from './pages/AlertDetailsPage.jsx'
+import IncidentsPage from './pages/IncidentsPage.jsx'
 import EntropyAnalysisPage from './pages/EntropyAnalysisPage.jsx'
 import ThresholdConfigurationPage from './pages/ThresholdConfigurationPage.jsx'
 import NetworkTopologyViewPage from './pages/NetworkTopologyViewPage.jsx'
@@ -20,13 +20,13 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardOverviewPage />} />
         {/* /Incidents = AlertDetailsPage, auto-loads latest alert when no :id */}
-        <Route path="/Incidents" element={<AlertDetailsPage />} />
+        <Route path="/Incidents" element={<IncidentsPage />} />
         {/* Full alert list */}
         <Route path="/alerts/list" element={<RealTimeAlertsPage />} />
         {/* Legacy alias */}
         <Route path="/alerts/real-time" element={<Navigate to="/alerts/list" replace />} />
         {/* Individual alert detail */}
-        <Route path="/alerts/:id" element={<AlertDetailsPage />} />
+        <Route path="/alerts/:id" element={<IncidentsPage />} />
         <Route path="/entropy" element={<EntropyAnalysisPage />} />
         <Route path="/honeytokens/logs" element={<HoneytokenAccessLogsPage />} />
         <Route path="/honeytokens/manage" element={<HoneytokenManagementPage />} />

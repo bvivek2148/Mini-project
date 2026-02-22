@@ -34,7 +34,7 @@ function saveRecent(idx) {
   localStorage.setItem(LS_KEY, JSON.stringify([idx, ...prev].slice(0, 10)))
 }
 
-export default function AlertDetailsPage() {
+export default function IncidentsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [alert, setAlert] = useState(null)
@@ -106,7 +106,7 @@ export default function AlertDetailsPage() {
           <div className="hidden lg:flex items-center gap-9">
             <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/dashboard">Dashboard</Link>
             <Link className="text-white text-sm font-medium leading-normal" to="/Incidents">Incidents</Link>
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/honeytokens/manage">Honeytokens</Link>
+            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/alerts/list">Alerts</Link>
             <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/config/thresholds">Settings</Link>
           </div>
         </div>
@@ -168,81 +168,15 @@ export default function AlertDetailsPage() {
                   {incidentsMenuOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIncidentsMenuOpen(false)} aria-hidden="true" />
-                      <div className="absolute left-0 top-full mt-2 w-72 rounded-lg border border-white/10 bg-surface-dark shadow-2xl z-50 overflow-hidden">
-
-                        {/* Recently Viewed */}
-                        {recentIds.length > 0 && (
-                          <>
-                            <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-white/5">
-                              <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest flex items-center gap-1">
-                                <span className="material-symbols-outlined text-[13px]">history</span>
-                                Recently Viewed
-                              </span>
-                              <button
-                                className="text-[10px] text-text-secondary hover:text-danger transition-colors"
-                                onClick={e => {
-                                  e.stopPropagation()
-                                  localStorage.removeItem(LS_KEY)
-                                  setRecentIds([])
-                                }}
-                              >
-                                Clear
-                              </button>
-                            </div>
-                            {recentIds.map(i => {
-                              const a = allAlerts[i]
-                              if (!a) return null
-                              const isCurrent = i === currentIdx
-                              return (
-                                <Link
-                                  key={`r-${i}`}
-                                  className={`flex items-start gap-2 px-3 py-2.5 text-sm transition-colors border-l-2 ${isCurrent ? 'bg-primary/10 border-primary text-white' : 'border-transparent text-white hover:bg-white/5'}`}
-                                  to={`/alerts/${i}`}
-                                  onClick={() => setIncidentsMenuOpen(false)}
-                                >
-                                  <span className={`material-symbols-outlined text-[15px] mt-0.5 shrink-0 ${isCurrent ? 'text-primary' : 'text-text-secondary'}`}>history</span>
-                                  <div className="flex flex-col min-w-0">
-                                    <span className="font-semibold truncate">Alert #{i}</span>
-                                    <span className="text-[11px] text-text-secondary truncate">
-                                      {a.alert_type === 'ransomware_suspected' ? 'Ransomware' : 'Honeytoken'} · {a.host}
-                                    </span>
-                                  </div>
-                                  {isCurrent && <span className="ml-auto shrink-0 text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold">Current</span>}
-                                </Link>
-                              )
-                            })}
-                            <div className="border-t border-white/10" />
-                          </>
-                        )}
-
-                        {/* All Incidents */}
-                        <div className="px-3 py-2 bg-white/5">
-                          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-widest">All Incidents</span>
-                        </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {allAlerts.map((a, i) => {
-                            const isCurrent = i === currentIdx
-                            const wasVisited = recentIds.includes(i)
-                            return (
-                              <Link
-                                key={i}
-                                className={`flex items-center gap-2 px-3 py-2 text-sm transition-colors ${isCurrent ? 'bg-primary/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
-                                to={`/alerts/${i}`}
-                                onClick={() => setIncidentsMenuOpen(false)}
-                              >
-                                <span className={`material-symbols-outlined text-[13px] shrink-0 ${isCurrent ? 'text-primary' : wasVisited ? 'text-text-secondary/60' : 'text-transparent'}`}>
-                                  {isCurrent ? 'radio_button_checked' : 'check'}
-                                </span>
-                                <span className="truncate">
-                                  Alert #{i} — {a.alert_type === 'ransomware_suspected' ? '🔴' : '🟠'} {a.host}
-                                </span>
-                              </Link>
-                            )
-                          })}
-                          {allAlerts.length === 0 && (
-                            <span className="block px-3 py-3 text-sm text-text-secondary text-center">No alerts yet</span>
-                          )}
-                        </div>
+                      <div className="absolute left-0 top-full mt-2 w-52 rounded-lg border border-white/10 bg-surface-dark shadow-2xl z-50 overflow-hidden">
+                        <Link
+                          to="/processes/termination-log"
+                          className="flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors"
+                          onClick={() => setIncidentsMenuOpen(false)}
+                        >
+                          <span className="material-symbols-outlined text-primary text-[18px]">receipt_long</span>
+                          Termination Log
+                        </Link>
                       </div>
                     </>
                   )}
