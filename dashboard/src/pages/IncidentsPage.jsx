@@ -107,7 +107,7 @@ export default function IncidentsPage() {
             <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/dashboard">Dashboard</Link>
             <Link className="text-white text-sm font-medium leading-normal" to="/Incidents">Incidents</Link>
             <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/alerts/list">Alerts</Link>
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/config/thresholds">Settings</Link>
+            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/analysts">Analysts</Link>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -182,10 +182,6 @@ export default function IncidentsPage() {
                   )}
                 </div>
 
-                <span className="text-text-secondary mx-2">/</span>
-                <span className="text-text-secondary mx-2">{isRansomware ? 'Ransomware' : 'Honeytoken'}</span>
-                <span className="text-text-secondary mx-2">/</span>
-                <span className="text-white font-medium">Alert-{String(id).padStart(3, '0')}</span>
               </nav>
 
               {/* Header Section */}

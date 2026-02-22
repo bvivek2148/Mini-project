@@ -11,6 +11,7 @@ import ProcessTerminationLogPage from './pages/ProcessTerminationLogPage.jsx'
 import HoneytokenManagementPage from './pages/HoneytokenManagementPage.jsx'
 import HoneytokenAccessLogsPage from './pages/HoneytokenAccessLogsPage.jsx'
 import { UserManagementPage } from './pages/Placeholders.jsx'
+import AnalystsPage from './pages/AnalystsPage.jsx'
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
         <Route path="/honeytokens/logs" element={<HoneytokenAccessLogsPage />} />
         <Route path="/honeytokens/manage" element={<HoneytokenManagementPage />} />
         <Route path="/users" element={<UserManagementPage />} />
+        <Route path="/analysts" element={<AnalystsPage />} />
         <Route path="/config/thresholds" element={<ThresholdConfigurationPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/processes/termination-log" element={<ProcessTerminationLogPage />} />
