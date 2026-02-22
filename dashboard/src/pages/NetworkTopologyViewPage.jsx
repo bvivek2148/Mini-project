@@ -1,7 +1,16 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { useAlerts } from '../hooks/useAlerts.js'
 
 export default function NetworkTopologyViewPage() {
+  const { alerts } = useAlerts(6000)
+
+  const activeThreats = useMemo(() =>
+    alerts.filter(a => a.alert_type === 'ransomware_suspected').length, [alerts])
+  const uniqueHosts = useMemo(() =>
+    new Set(alerts.map(a => a.host).filter(Boolean)).size, [alerts])
+  const systemHealth = uniqueHosts === 0 ? 100 : Math.max(0, Math.round(100 - (activeThreats / Math.max(uniqueHosts, 1)) * 100))
+
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-white overflow-hidden h-screen flex flex-col">
       {/* Top Navigation */}
@@ -30,7 +39,7 @@ export default function NetworkTopologyViewPage() {
               Dashboard
             </Link>
             <Link
-              to="/alerts/real-time"
+              to="/Incidents"
               className="text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-primary transition-colors"
             >
               Alerts
@@ -97,12 +106,12 @@ export default function NetworkTopologyViewPage() {
                 <div>
                   <p className="text-slate-500 dark:text-[#92adc9] text-xs font-medium uppercase tracking-wider">System Health</p>
                   <div className="flex items-baseline gap-2 mt-1">
-                    <p className="text-slate-900 dark:text-white text-2xl font-bold leading-tight">94%</p>
-                    <span className="text-orange-500 text-xs font-medium flex items-center">
+                    <p className="text-slate-900 dark:text-white text-2xl font-bold leading-tight">{systemHealth}%</p>
+                    <span className={`text-xs font-medium flex items-center ${systemHealth < 90 ? 'text-red-500' : 'text-emerald-500'}`}>
                       <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-                        trending_down
+                        {systemHealth < 90 ? 'trending_down' : 'trending_up'}
                       </span>
-                      2%
+                      {systemHealth < 90 ? 'Degraded' : 'Healthy'}
                     </span>
                   </div>
                 </div>
@@ -118,13 +127,15 @@ export default function NetworkTopologyViewPage() {
                 <div>
                   <p className="text-slate-500 dark:text-[#92adc9] text-xs font-medium uppercase tracking-wider">Active Threats</p>
                   <div className="flex items-baseline gap-2 mt-1">
-                    <p className="text-slate-900 dark:text-white text-2xl font-bold leading-tight">3</p>
-                    <span className="text-red-500 text-xs font-medium flex items-center">
-                      <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-                        trending_up
+                    <p className="text-slate-900 dark:text-white text-2xl font-bold leading-tight">{activeThreats}</p>
+                    {activeThreats > 0 ? (
+                      <span className="text-red-500 text-xs font-medium flex items-center">
+                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>warning</span>
+                        CRITICAL
                       </span>
-                      CRITICAL
-                    </span>
+                    ) : (
+                      <span className="text-emerald-500 text-xs font-medium">Secure</span>
+                    )}
                   </div>
                 </div>
                 <div className="size-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 animate-pulse">
@@ -134,7 +145,7 @@ export default function NetworkTopologyViewPage() {
                 </div>
               </div>
               <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-1 overflow-hidden">
-                <div className="bg-red-500 h-1.5 rounded-full" style={{ width: '15%' }} />
+                <div className="bg-red-500 h-1.5 rounded-full" style={{ width: `${Math.min(activeThreats * 10, 100)}%` }} />
               </div>
             </div>
           </div>
@@ -148,7 +159,7 @@ export default function NetworkTopologyViewPage() {
                 </span>
                 <span className="text-slate-700 dark:text-white text-sm font-medium">All Endpoints</span>
                 <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] px-1.5 py-0.5 rounded-full ml-1">
-                  1,245
+                  {uniqueHosts}
                 </span>
               </button>
               <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1 shrink-0" />

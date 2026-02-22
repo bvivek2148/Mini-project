@@ -19,7 +19,13 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardOverviewPage />} />
-        <Route path="/alerts/real-time" element={<RealTimeAlertsPage />} />
+        {/* /Incidents = AlertDetailsPage, auto-loads latest alert when no :id */}
+        <Route path="/Incidents" element={<AlertDetailsPage />} />
+        {/* Full alert list */}
+        <Route path="/alerts/list" element={<RealTimeAlertsPage />} />
+        {/* Legacy alias */}
+        <Route path="/alerts/real-time" element={<Navigate to="/alerts/list" replace />} />
+        {/* Individual alert detail */}
         <Route path="/alerts/:id" element={<AlertDetailsPage />} />
         <Route path="/entropy" element={<EntropyAnalysisPage />} />
         <Route path="/honeytokens/logs" element={<HoneytokenAccessLogsPage />} />

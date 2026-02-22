@@ -93,7 +93,7 @@ export default function DashboardOverviewPage() {
                 <span className="text-sm font-medium leading-normal">Overview</span>
               </Link>
               <Link
-                to="/alerts/R-2024-001"
+                to="/Incidents"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
                 onClick={() => setSidebarOpen(false)}
               >
@@ -202,12 +202,12 @@ export default function DashboardOverviewPage() {
             <div className="hidden sm:flex items-center gap-2">
               {/* ONLINE / OFFLINE badge */}
               <div className={`flex items-center gap-2 px-3 py-1.5 rounded-l border h-9 border-r-0 transition-colors ${agentRunning
-                  ? 'bg-green-500/10 border-green-500/20'
-                  : 'bg-red-500/10 border-red-500/20'
+                ? 'bg-green-500/10 border-green-500/20'
+                : 'bg-red-500/10 border-red-500/20'
                 }`}>
                 <div className={`size-2 rounded-full ${agentRunning
-                    ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse'
-                    : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
+                  ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] animate-pulse'
+                  : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'
                   }`} />
                 <span className={`text-xs font-bold tracking-wider ${agentRunning ? 'text-green-500' : 'text-red-400'
                   }`}>
@@ -343,8 +343,8 @@ export default function DashboardOverviewPage() {
                 <div className="flex justify-between items-start">
                   <p className="text-[#92adc9] text-sm font-semibold uppercase tracking-wider">Agent Status</p>
                   <span className={`text-xs px-2 py-0.5 rounded font-bold ${error ? 'bg-red-500/20 text-red-400'
-                      : agentRunning ? 'bg-green-500/20 text-green-400'
-                        : 'bg-red-500/20 text-red-400'
+                    : agentRunning ? 'bg-green-500/20 text-green-400'
+                      : 'bg-red-500/20 text-red-400'
                     }`}>
                     {error ? 'SERVER ERROR' : agentRunning ? 'ONLINE' : 'OFFLINE'}
                   </span>
@@ -358,8 +358,8 @@ export default function DashboardOverviewPage() {
                   onClick={handleAgentToggle}
                   disabled={agentToggling}
                   className={`mt-1 self-start text-xs font-bold px-3 py-1 rounded transition-colors disabled:opacity-60 ${agentRunning
-                      ? 'bg-red-500/20 text-red-400 hover:bg-red-500/40'
-                      : 'bg-green-500/20 text-green-400 hover:bg-green-500/40'
+                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/40'
+                    : 'bg-green-500/20 text-green-400 hover:bg-green-500/40'
                     }`}
                 >
                   {agentToggling ? 'Please wait…' : agentRunning ? 'Stop Agent' : 'Start Agent'}
@@ -489,7 +489,7 @@ export default function DashboardOverviewPage() {
                 </div>
                 <div className="p-3 bg-[#1e2e3e] border-t border-[#334b63] text-center">
                   <Link
-                    to="/alerts/real-time"
+                    to="/Incidents"
                     className="text-xs text-primary font-bold hover:text-white transition-colors uppercase tracking-wide"
                   >
                     View Full Feed

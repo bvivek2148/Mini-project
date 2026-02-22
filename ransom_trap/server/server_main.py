@@ -69,6 +69,17 @@ async def list_alerts() -> List[Dict[str, Any]]:
     return storage.get_alerts()
 
 
+@app.delete("/alerts", response_class=JSONResponse)
+async def clear_alerts() -> Dict[str, Any]:
+    """Clear all stored alerts."""
+    storage.alerts.clear()
+    try:
+        ALERTS_FILE.write_text("", encoding="utf-8")
+    except OSError:
+        pass
+    return {"status": "cleared"}
+
+
 @app.post("/alerts", response_class=JSONResponse)
 async def create_alert(request: Request) -> Dict[str, Any]:
     data = await request.json()
@@ -81,6 +92,74 @@ async def create_alert(request: Request) -> Dict[str, Any]:
 @app.get("/favicon.ico")
 async def favicon() -> Response:
     return Response(status_code=204)
+
+
+@app.get("/honeytokens", response_class=JSONResponse)
+async def list_honeytokens() -> List[Dict[str, Any]]:
+    """Return deployed honeytoken files derived from config.yaml."""
+    import yaml  # noqa: PLC0415
+
+    config_path = BASE_DIR / "config" / "config.yaml"
+    try:
+        cfg = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        cfg = {}
+
+    ht_cfg = cfg.get("honeytokens", {})
+    file_names = ht_cfg.get("file_names", [])
+    ht_paths = (cfg.get("agent", {}) or {}).get("honeytoken_paths", [])
+
+    # Build list of deployed tokens
+    alerts = storage.get_alerts()
+    triggered_paths = {
+        a.get("path", "").lower()
+        for a in alerts
+        if a.get("alert_type") == "honeytoken_access"
+    }
+
+    tokens = []
+    for path in ht_paths:
+        for name in file_names:
+            full_path = f"{path}\\{name}".lower()
+            triggered = any(full_path in tp or tp in full_path for tp in triggered_paths)
+            # Find latest alert for this token
+            latest_alert = None
+            for a in reversed(alerts):
+                if a.get("alert_type") == "honeytoken_access" and name.lower() in (a.get("path") or "").lower():
+                    latest_alert = a
+                    break
+            tokens.append({
+                "name": name,
+                "path": path,
+                "full_path": f"{path}\\{name}",
+                "status": "TRIGGERED" if triggered else "monitoring",
+                "last_alert_ts": latest_alert.get("timestamp") if latest_alert else None,
+                "host": latest_alert.get("host") if latest_alert else None,
+            })
+
+    return tokens
+
+
+@app.get("/config", response_class=JSONResponse)
+async def get_config() -> Dict[str, Any]:
+    """Return relevant detection config values."""
+    import yaml  # noqa: PLC0415
+
+    config_path = BASE_DIR / "config" / "config.yaml"
+    try:
+        cfg = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        cfg = {}
+    return {
+        "entropy_threshold": (cfg.get("detection") or {}).get("entropy_threshold", 7.0),
+        "min_suspicious_files": (cfg.get("detection") or {}).get("min_suspicious_files", 3),
+        "time_window_seconds": (cfg.get("detection") or {}).get("time_window_seconds", 5),
+        "kill_on_detection": (cfg.get("detection") or {}).get("kill_on_detection", False),
+        "monitored_paths": (cfg.get("agent") or {}).get("monitored_paths", []),
+        "honeytoken_paths": (cfg.get("agent") or {}).get("honeytoken_paths", []),
+        "honeytoken_files": (cfg.get("honeytokens") or {}).get("file_names", []),
+    }
+
 
 
 # ------------------------------------------------------------------

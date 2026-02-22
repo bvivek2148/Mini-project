@@ -1,8 +1,21 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { fetchConfig } from '../api.js'
 
 export default function ThresholdConfigurationPage() {
   const navigate = useNavigate()
+  const [config, setConfig] = useState(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    fetchConfig().then(setConfig).catch(() => { })
+  }, [])
+
+  const entropyThreshold = config ? config.entropy_threshold : 7.0
+  const minFiles = config ? config.min_suspicious_files : 3
+  const timeWindow = config ? config.time_window_seconds : 5
+  // Normalize entropy threshold to 0–1 range for slider (typical range 5–8)
+  const sliderVal = Math.min(1, Math.max(0, (entropyThreshold - 5) / 3)).toFixed(2)
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display antialiased overflow-hidden">
@@ -171,9 +184,9 @@ export default function ThresholdConfigurationPage() {
                         <label className="text-sm font-medium text-white" htmlFor="entropy-slider">
                           Sensitivity Level
                         </label>
-                        <span className="text-sm font-bold text-primary">0.72 (High)</span>
+                        <span className="text-sm font-bold text-primary">{sliderVal} (Entropy: {entropyThreshold})</span>
                       </div>
-                      <input className="w-full" id="entropy-slider" max="1" min="0" step="0.01" type="range" value="0.72" readOnly />
+                      <input className="w-full" id="entropy-slider" max="1" min="0" step="0.01" type="range" value={sliderVal} readOnly />
                       <div className="flex justify-between text-xs text-text-secondary">
                         <span>0.0 (Permissive)</span>
                         <span>0.5</span>
@@ -189,7 +202,7 @@ export default function ThresholdConfigurationPage() {
                           <input
                             className="block w-full rounded-lg border border-border-dark bg-[#1c2936] p-2.5 text-white focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                             type="number"
-                            value="1024"
+                            value={1024}
                             readOnly
                           />
                           <span className="absolute right-3 top-2.5 text-xs text-text-secondary">KB</span>
@@ -215,7 +228,7 @@ export default function ThresholdConfigurationPage() {
                           <input
                             className="block w-full rounded-lg border border-border-dark bg-[#1c2936] p-2.5 text-white focus:border-primary focus:ring-1 focus:ring-primary text-sm"
                             type="number"
-                            value="500"
+                            value={timeWindow * 1000}
                             readOnly
                           />
                           <span className="absolute right-3 top-2.5 text-xs text-text-secondary">ms</span>
@@ -299,38 +312,47 @@ export default function ThresholdConfigurationPage() {
                     </div>
                   </div>
 
-                  {/* Action Panel */}
-                  <div className="sticky bottom-6 rounded-xl border border-border-dark bg-surface-dark p-4 shadow-xl lg:static">
-                    <div className="flex flex-col gap-3">
-                      <button
-                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all active:scale-[0.98]"
-                        type="button"
-                      >
-                        <span className="material-symbols-outlined text-[20px]">save</span>
-                        Apply Configuration
+                  {/* Right Column label telling how to actually edit config */}
+                  {config && (
+                    <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-4 mb-2">
+                      <p className="text-xs text-blue-300 font-medium">Current config from <code className="bg-blue-900/30 px-1 rounded">config.yaml</code></p>
+                      <ul className="mt-2 space-y-1 text-xs text-blue-200">
+                        <li>Entropy threshold: <span className="font-bold">{config.entropy_threshold}</span></li>
+                        <li>Min suspicious files: <span className="font-bold">{config.min_suspicious_files}</span></li>
+                        <li>Time window: <span className="font-bold">{config.time_window_seconds}s</span></li>
+                        <li>Kill on detection: <span className="font-bold">{config.kill_on_detection ? 'Yes' : 'No'}</span></li>
+                      </ul>
+                    </div>
+                  )}
+                  <div className="flex flex-col gap-3">
+                    <button
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-all active:scale-[0.98]"
+                      type="button"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">save</span>
+                      Apply Configuration
+                    </button>
+                    <button
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-dark bg-transparent py-2.5 text-sm font-medium text-text-secondary hover:bg-[#1c2936] hover:text-white transition-colors"
+                      type="button"
+                    >
+                      Discard Changes
+                    </button>
+                    <div className="text-center">
+                      <button className="text-xs text-text-secondary underline hover:text-primary" type="button">
+                        Reset to Defaults
                       </button>
-                      <button
-                        className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-dark bg-transparent py-2.5 text-sm font-medium text-text-secondary hover:bg-[#1c2936] hover:text-white transition-colors"
-                        type="button"
-                      >
-                        Discard Changes
-                      </button>
-                      <div className="text-center">
-                        <button className="text-xs text-text-secondary underline hover:text-primary" type="button">
-                          Reset to Defaults
-                        </button>
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-
-              {/* Footer */}
-              <footer className="mt-12 border-t border-border-dark py-6 text-center text-xs text-text-secondary">
-                <p>© 2023 Ransom Trap Security Systems. All rights reserved.</p>
-                <p className="mt-1">Version 4.2.0-beta</p>
-              </footer>
             </div>
+
+            {/* Footer */}
+            <footer className="mt-12 border-t border-border-dark py-6 text-center text-xs text-text-secondary">
+              <p>© 2024 Ransom Trap Security Systems. All rights reserved.</p>
+              <p className="mt-1">Version 4.2.0-beta</p>
+            </footer>
           </div>
         </main>
       </div>

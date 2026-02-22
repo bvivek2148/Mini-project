@@ -75,7 +75,7 @@ export const ProcessTerminationLogPage = () => (
     description="Audit trail of automated process kills performed by the agent."
     breadcrumbs={[
       { label: 'Dashboard', to: '/dashboard' },
-      { label: 'Incidents', to: '/alerts/real-time' },
+      { label: 'Incidents', to: '/Incidents' },
       { label: 'Termination Log' },
     ]}
   />

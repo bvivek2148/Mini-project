@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAlerts } from '../hooks/useAlerts.js'
 
 function formatTimestamp(ts) {
@@ -29,6 +30,7 @@ function SeverityBadge({ alertType }) {
 export default function RealTimeAlertsPage() {
   const [search, setSearch] = useState('')
   const { alerts, loading, error } = useAlerts(3000)
+  const navigate = useNavigate()
 
   const sortedAlerts = [...alerts].reverse()
   const filtered = sortedAlerts.filter(a => {
@@ -279,49 +281,52 @@ export default function RealTimeAlertsPage() {
                       </td>
                     </tr>
                   )}
-                  {!loading && filtered.map((alert, i) => (
-                    <tr key={i} className="hover:bg-[#1e2c3b] group transition-colors cursor-pointer">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <input className="h-4 w-4 rounded border-gray-600 bg-[#233648] text-primary" type="checkbox" />
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <SeverityBadge alertType={alert.alert_type} />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
-                        {formatTimestamp(alert.timestamp)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-white">
-                          {alert.alert_type === 'ransomware_suspected' ? 'Ransomware Suspected' : 'Honeytoken Access'}
-                        </div>
-                        <div className="text-xs text-[#92adc9]">
-                          {alert.path ? `File: ${alert.path.split('\\').pop() || alert.path.split('/').pop()}` : `PID: ${alert.pid || '—'}`}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-white">{alert.host || '—'}</div>
-                        <div className="text-xs text-[#92adc9] font-mono">{alert.process_name || 'unknown'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/20">
-                          New
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <div className="h-6 w-6 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white font-bold">--</div>
-                          <span className="text-sm text-[#92adc9] italic">Unassigned</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button className="text-[#92adc9] hover:text-white transition-colors p-1 hover:bg-[#233648] rounded">
-                          <span className="material-symbols-outlined" style={{ fontSize: 20 }}>more_vert</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {!loading && filtered.map((alert, i) => {
+                    const originalIdx = alerts.indexOf(alert)
+                    return (
+                      <tr key={i} onClick={() => navigate(`/alerts/${originalIdx}`)} className="hover:bg-[#1e2c3b] group transition-colors cursor-pointer">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <input className="h-4 w-4 rounded border-gray-600 bg-[#233648] text-primary" type="checkbox" onClick={e => e.stopPropagation()} />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <SeverityBadge alertType={alert.alert_type} />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 font-mono">
+                          {formatTimestamp(alert.timestamp)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-white">
+                            {alert.alert_type === 'ransomware_suspected' ? 'Ransomware Suspected' : 'Honeytoken Access'}
+                          </div>
+                          <div className="text-xs text-[#92adc9]">
+                            {alert.path ? `File: ${alert.path.split('\\').pop() || alert.path.split('/').pop()}` : `PID: ${alert.pid || '—'}`}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-white">{alert.host || '—'}</div>
+                          <div className="text-xs text-[#92adc9] font-mono">{alert.process_name || 'unknown'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/20">
+                            New
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-full bg-gray-600 flex items-center justify-center text-[10px] text-white font-bold">--</div>
+                            <span className="text-sm text-[#92adc9] italic">Unassigned</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button className="text-[#92adc9] hover:text-white transition-colors p-1 hover:bg-[#233648] rounded" onClick={e => e.stopPropagation()}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>open_in_new</span>
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
 
@@ -360,25 +365,7 @@ export default function RealTimeAlertsPage() {
           </div>
         </div>
 
-        {/* Floating Action Bar (Contextual) */}
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-[#233648] border border-border-dark shadow-2xl rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
-          <span className="text-white text-sm font-medium whitespace-nowrap">1 alert selected</span>
-          <div className="h-4 w-px bg-gray-600" />
-          <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-[#16202a] text-sm text-[#92adc9] hover:text-white transition-colors">
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                check_circle
-              </span>
-              Acknowledge
-            </button>
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-full hover:bg-red-500/10 text-sm text-red-400 hover:text-red-500 transition-colors">
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                block
-              </span>
-              Quarantine Host
-            </button>
-          </div>
-        </div>
+
       </main>
     </div>
   )
