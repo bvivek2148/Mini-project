@@ -1,6 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAlerts } from '../hooks/useAlerts.js'
+import { fetchAlerts } from '../api.js'
+
+// ── Recently-viewed tracking (shared with IncidentsPage) ─────────────────
+const LS_KEY = 'rt_recent_alerts'
+function getRecent() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
+}
 
 function formatTimestamp(ts) {
   if (!ts) return '—'
@@ -31,6 +38,12 @@ export default function RealTimeAlertsPage() {
   const [search, setSearch] = useState('')
   const { alerts, loading, error } = useAlerts(3000)
   const navigate = useNavigate()
+  const [recentIds, setRecentIds] = useState(getRecent)
+  const [allAlerts, setAllAlerts] = useState([])
+
+  useEffect(() => {
+    fetchAlerts().then(setAllAlerts).catch(() => { })
+  }, [])
 
   const sortedAlerts = [...alerts].reverse()
   const filtered = sortedAlerts.filter(a => {
@@ -45,75 +58,84 @@ export default function RealTimeAlertsPage() {
   })
   return (
     <div className="flex h-screen w-full">
-      {/* SIDEBAR */}
-      <aside className="flex w-64 flex-col border-r border-border-dark bg-[#111a22] flex-shrink-0 transition-all duration-300">
-        <div className="flex items-center gap-3 px-6 py-6 border-b border-border-dark/50">
-          <div
-            className="bg-center bg-no-repeat bg-cover rounded-full size-10 bg-gradient-to-br from-primary to-purple-600 shadow-lg shadow-primary/20"
-            data-alt="Abstract gradient logo representing security shield"
-          />
+      {/* ── SIDEBAR ── */}
+      <aside className="flex w-64 flex-col border-r border-border-dark bg-[#111a22] flex-shrink-0">
+
+        {/* Go Back */}
+        <div className="px-4 pt-4 pb-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg bg-[#1e2d3d] hover:bg-[#253547] transition-colors text-sm font-semibold text-white group"
+          >
+            <span className="material-symbols-outlined text-[20px] text-[#92adc9] group-hover:text-white transition-colors">arrow_back</span>
+            Go Back
+          </button>
+        </div>
+
+        <div className="mx-4 border-t border-border-dark my-1" />
+
+        {/* Recently Viewed */}
+        {recentIds.length > 0 && (
           <div className="flex flex-col">
-            <h1 className="text-white text-base font-bold leading-none tracking-tight">
-              Ransom Trap
-            </h1>
-            <p className="text-[#92adc9] text-xs font-medium mt-1">Security Console</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 p-4 mt-2">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-border-dark hover:text-white transition-colors cursor-pointer group">
-            <span className="material-symbols-outlined group-hover:text-primary transition-colors" style={{ fontSize: 24 }}>
-              grid_view
-            </span>
-            <p className="text-sm font-medium">Dashboard</p>
-          </div>
-
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 border border-primary/20 text-white cursor-pointer relative overflow-hidden">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-lg" />
-            <span className="material-symbols-outlined text-primary" style={{ fontSize: 24 }}>
-              warning
-            </span>
-            <p className="text-sm font-medium">Alerts</p>
-            <span className="ml-auto bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">12</span>
-          </div>
-
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-border-dark hover:text-white transition-colors cursor-pointer group">
-            <span className="material-symbols-outlined group-hover:text-primary transition-colors" style={{ fontSize: 24 }}>
-              dns
-            </span>
-            <p className="text-sm font-medium">Devices</p>
-          </div>
-
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-border-dark hover:text-white transition-colors cursor-pointer group">
-            <span className="material-symbols-outlined group-hover:text-primary transition-colors" style={{ fontSize: 24 }}>
-              manage_accounts
-            </span>
-            <p className="text-sm font-medium">Analysts</p>
-          </div>
-
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-border-dark hover:text-white transition-colors cursor-pointer group">
-            <span className="material-symbols-outlined group-hover:text-primary transition-colors" style={{ fontSize: 24 }}>
-              settings
-            </span>
-            <p className="text-sm font-medium">Settings</p>
-          </div>
-        </div>
-
-        <div className="mt-auto p-4 border-t border-border-dark/50">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div
-              className="bg-center bg-no-repeat bg-cover rounded-full size-8 border border-border-dark"
-              data-alt="User profile picture of a security analyst"
-              style={{
-                backgroundImage:
-                  'url("https://lh3.googleusercontent.com/aida-public/AB6AXuC7EPPE5H-9yQ0vT2r3Z-tdZggnU1KMzPgr9fSG1YQymr71fYN1o00G6hLuTdfMYeLAYkRiVLaFWIRLFBwzKYPxa271aNVKjSt0W223oT1XgNflCTTfKqoQGJZwk19UpxoIETm0l9ey02gxnYHqHyV6-Oy1OxB9dekLy_W3Mk_mzYT9X80PN8TzkDtTXfz5iOg87scUNRISxVg9H7pcKboeHkI4zg1_Wq_DARrxRTz5d3nFYRKymln9Ne_z8OipgvigBk6Ui3f9how")',
-              }}
-            />
-            <div className="flex flex-col">
-              <p className="text-white text-sm font-medium">Alex Chen</p>
-              <p className="text-[#92adc9] text-xs">Senior Analyst</p>
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="flex items-center gap-1 text-[10px] font-bold text-[#92adc9] uppercase tracking-widest">
+                <span className="material-symbols-outlined text-[13px]">history</span>
+                Recently Viewed
+              </span>
+              <button
+                className="text-[10px] text-[#92adc9] hover:text-red-400 transition-colors"
+                onClick={() => { localStorage.removeItem(LS_KEY); setRecentIds([]) }}
+              >
+                Clear
+              </button>
             </div>
+            {recentIds.map(i => {
+              const a = allAlerts[i]
+              if (!a) return null
+              return (
+                <Link
+                  key={`r-${i}`}
+                  to={`/alerts/${i}`}
+                  className="flex items-start gap-2 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors border-l-2 border-transparent"
+                >
+                  <span className="material-symbols-outlined text-[16px] mt-0.5 shrink-0 text-[#92adc9]">history</span>
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-[#c8d9ea] truncate">Alert #{i}</span>
+                    </div>
+                    <span className="text-[11px] text-[#92adc9] truncate">
+                      {a.alert_type === 'ransomware_suspected' ? 'Ransomware' : 'Honeytoken'} · {a.host}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
+            <div className="mx-4 border-t border-border-dark my-1" />
           </div>
+        )}
+
+        {/* All Incidents */}
+        <div className="flex flex-col flex-1 overflow-y-auto">
+          <div className="px-4 py-2">
+            <span className="text-[10px] font-bold text-[#92adc9] uppercase tracking-widest">All Incidents</span>
+          </div>
+          {allAlerts.map((a, i) => (
+            <Link
+              key={i}
+              to={`/alerts/${i}`}
+              className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-white/5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[15px] shrink-0 text-[#92adc9]">
+                {recentIds.includes(i) ? 'check' : 'check'}
+              </span>
+              <span className="truncate text-sm text-[#92adc9] hover:text-white">
+                Alert #{i} — {a.alert_type === 'ransomware_suspected' ? '🔴' : '🟠'} {a.host}
+              </span>
+            </Link>
+          ))}
+          {allAlerts.length === 0 && (
+            <span className="px-4 py-3 text-sm text-[#92adc9]">No incidents yet</span>
+          )}
         </div>
       </aside>
 
