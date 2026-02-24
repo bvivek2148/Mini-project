@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -86,7 +85,159 @@ async def create_alert(request: Request) -> Dict[str, Any]:
     if not isinstance(data, dict):
         return {"status": "error", "message": "Alert payload must be a JSON object"}
     storage.add_alert(data)
+    # Fire email notification in background (non-blocking)
+    import threading
+    threading.Thread(target=_send_email_alert, args=(data,), daemon=True).start()
     return {"status": "ok"}
+
+
+# ------------------------------------------------------------------
+# Alert acknowledgment
+# ------------------------------------------------------------------
+
+@app.patch("/alerts/{index}", response_class=JSONResponse)
+async def patch_alert(index: int, request: Request) -> Dict[str, Any]:
+    """Update a specific alert's status/notes (acknowledge, resolve, escalate)."""
+    patch = await request.json()
+    if not isinstance(patch, dict):
+        return JSONResponse({"error": "Patch must be a JSON object"}, status_code=400)
+    ok = storage.update_alert(index, patch)
+    if not ok:
+        return JSONResponse({"error": "Alert index out of range"}, status_code=404)
+    return {"status": "ok", "index": index}
+
+
+# ------------------------------------------------------------------
+# Email notification helper
+# ------------------------------------------------------------------
+
+def _load_config_raw() -> Dict:
+    """Load config.yaml as a dict (returns {} on error)."""
+    import yaml
+    try:
+        return yaml.safe_load((BASE_DIR / "config" / "config.yaml").read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+
+
+def _dispatch_notifications(alert: Dict[str, Any]) -> None:
+    """Dispatches all enabled notifications sequentially in the background thread."""
+    _send_email_alert(alert)
+    _send_telegram_alert(alert)
+    _send_whatsapp_alert(alert)
+
+
+def _send_email_alert(alert: Dict[str, Any]) -> None:
+    """Send an email notification for *alert* if SMTP is configured."""
+    import smtplib
+    from email.mime.text import MIMEText
+
+    cfg = _load_config_raw()
+    email_cfg = (cfg.get("notifications") or {}).get("email") or {}
+    if not email_cfg.get("enabled"):
+        return
+
+    host = email_cfg.get("smtp_host", "smtp.gmail.com")
+    port = int(email_cfg.get("smtp_port", 587))
+    user = email_cfg.get("smtp_user", "")
+    password = email_cfg.get("smtp_password", "")
+    recipients = email_cfg.get("recipients") or []
+    if not recipients or not user:
+        return
+
+    alert_type = alert.get("alert_type", "unknown")
+    machine = alert.get("host", "unknown")
+    subject = f"[Ransom-Trap] 🚨 {alert_type.upper()} on {machine}"
+    body = (
+        f"Alert detected by Ransom-Trap agent.\n\n"
+        f"Type   : {alert_type}\n"
+        f"Host   : {machine}\n"
+        f"Process: {alert.get('process_name', '—')} (PID {alert.get('pid', '—')})\n"
+        f"Path   : {alert.get('path', '—')}\n"
+    )
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = user
+    msg["To"] = ", ".join(recipients)
+
+    try:
+        with smtplib.SMTP(host, port, timeout=10) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.login(user, password)
+            smtp.sendmail(user, recipients, msg.as_string())
+    except Exception:
+        pass  # Silently ignore – notification is best-effort
+
+
+def _send_telegram_alert(alert: Dict[str, Any]) -> None:
+    """Send a Telegram message via bot API."""
+    import requests
+
+    cfg = _load_config_raw()
+    tg_cfg = (cfg.get("notifications") or {}).get("telegram") or {}
+    if not tg_cfg.get("enabled"):
+        return
+
+    bot_token = tg_cfg.get("bot_token")
+    chat_id = tg_cfg.get("chat_id")
+    if not bot_token or not chat_id:
+        return
+
+    alert_type = alert.get("alert_type", "unknown")
+    machine = alert.get("host", "unknown")
+    text = (
+        f"🚨 *Ransom-Trap Alert*\n"
+        f"Type: `{alert_type}`\n"
+        f"Host: `{machine}`\n"
+        f"Process: `{alert.get('process_name', '—')}`\n"
+        f"Path: `{alert.get('path', '—')}`"
+    )
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    try:
+        requests.post(url, json={"chat_id": chat_id, "text": text, "parse_mode": "MarkdownV2"}, timeout=5)
+    except Exception:
+        pass
+
+
+def _send_whatsapp_alert(alert: Dict[str, Any]) -> None:
+    """Send a WhatsApp message via Meta Cloud API."""
+    import requests
+
+    cfg = _load_config_raw()
+    wa_cfg = (cfg.get("notifications") or {}).get("whatsapp") or {}
+    if not wa_cfg.get("enabled"):
+        return
+
+    api_token = wa_cfg.get("api_token")
+    phone_id = wa_cfg.get("phone_number_id")
+    target = wa_cfg.get("target_number")
+    if not api_token or not phone_id or not target:
+        return
+
+    alert_type = alert.get("alert_type", "unknown")
+    machine = alert.get("host", "unknown")
+    text = (
+        f"🚨 *Ransom-Trap Alert*\n"
+        f"Type: {alert_type}\n"
+        f"Host: {machine}\n"
+        f"Process: {alert.get('process_name', '—')}"
+    )
+
+    url = f"https://graph.facebook.com/v17.0/{phone_id}/messages"
+    headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": target,
+        "type": "text",
+        "text": {"body": text}
+    }
+    try:
+        requests.post(url, headers=headers, json=payload, timeout=5)
+    except Exception:
+        pass
 
 
 @app.get("/favicon.ico")
@@ -158,7 +309,55 @@ async def get_config() -> Dict[str, Any]:
         "monitored_paths": (cfg.get("agent") or {}).get("monitored_paths", []),
         "honeytoken_paths": (cfg.get("agent") or {}).get("honeytoken_paths", []),
         "honeytoken_files": (cfg.get("honeytokens") or {}).get("file_names", []),
+        "email_enabled": (cfg.get("notifications") or {}).get("email", {}).get("enabled", False),
+        "telegram_enabled": (cfg.get("notifications") or {}).get("telegram", {}).get("enabled", False),
+        "whatsapp_enabled": (cfg.get("notifications") or {}).get("whatsapp", {}).get("enabled", False),
     }
+
+
+@app.patch("/config", response_class=JSONResponse)
+async def patch_config(request: Request) -> Dict[str, Any]:
+    """Live-update detection settings in config.yaml."""
+    import yaml
+
+    patch = await request.json()
+    if not isinstance(patch, dict):
+        return JSONResponse({"error": "Body must be a JSON object"}, status_code=400)
+
+    config_path = BASE_DIR / "config" / "config.yaml"
+    try:
+        cfg = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        cfg = {}
+
+    # Apply supported fields
+    detection = cfg.setdefault("detection", {})
+    notifications = cfg.setdefault("notifications", {})
+    email_cfg = notifications.setdefault("email", {})
+    tg_cfg = notifications.setdefault("telegram", {})
+    wa_cfg = notifications.setdefault("whatsapp", {})
+
+    if "kill_on_detection" in patch:
+        detection["kill_on_detection"] = bool(patch["kill_on_detection"])
+    if "entropy_threshold" in patch:
+        detection["entropy_threshold"] = float(patch["entropy_threshold"])
+    if "min_suspicious_files" in patch:
+        detection["min_suspicious_files"] = int(patch["min_suspicious_files"])
+    if "time_window_seconds" in patch:
+        detection["time_window_seconds"] = int(patch["time_window_seconds"])
+    if "email_enabled" in patch:
+        email_cfg["enabled"] = bool(patch["email_enabled"])
+    if "telegram_enabled" in patch:
+        tg_cfg["enabled"] = bool(patch["telegram_enabled"])
+    if "whatsapp_enabled" in patch:
+        wa_cfg["enabled"] = bool(patch["whatsapp_enabled"])
+
+    try:
+        config_path.write_text(yaml.dump(cfg, default_flow_style=False, allow_unicode=True), encoding="utf-8")
+    except Exception as exc:
+        return JSONResponse({"error": f"Failed to save config: {exc}"}, status_code=500)
+
+    return {"status": "ok"}
 
 
 

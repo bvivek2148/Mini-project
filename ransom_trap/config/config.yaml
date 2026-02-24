@@ -26,3 +26,24 @@ honeytokens:
 
 host:
   hostname: null
+
+# ── Email push notifications ──────────────────────────────────────────────────
+# Set enabled: true and fill in your SMTP credentials to receive instant alerts.
+notifications:
+  email:
+    enabled: false
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+    smtp_user: "your@gmail.com"
+    smtp_password: "your_app_password"
+    recipients:
+      - "analyst@example.com"
+  telegram:
+    enabled: false
+    bot_token: "YOUR_TELEGRAM_BOT_TOKEN"
+    chat_id: "YOUR_TELEGRAM_CHAT_ID"
+  whatsapp:
+    enabled: false
+    api_token: "YOUR_META_GRAPH_API_TOKEN"
+    phone_number_id: "YOUR_SENDER_PHONE_ID"
+    target_number: "YOUR_TARGET_PHONE_NUMBER_WITH_COUNTRY_CODE"

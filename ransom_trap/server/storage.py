@@ -40,3 +40,18 @@ class AlertStorage:
 
     def get_alerts(self) -> List[Dict[str, Any]]:
         return list(self.alerts)
+
+    def update_alert(self, index: int, patch: Dict[str, Any]) -> bool:
+        """Merge *patch* into the alert at *index*. Returns True on success."""
+        if index < 0 or index >= len(self.alerts):
+            return False
+        self.alerts[index].update(patch)
+        # Re-write the whole file so the change is persisted.
+        try:
+            self.file_path.write_text(
+                "\n".join(json.dumps(a, ensure_ascii=False) for a in self.alerts) + "\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+        return True

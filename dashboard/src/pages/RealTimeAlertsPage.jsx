@@ -36,6 +36,7 @@ function SeverityBadge({ alertType }) {
 
 export default function RealTimeAlertsPage() {
   const [search, setSearch] = useState('')
+  const [hostFilter, setHostFilter] = useState('')
   const { alerts, loading, error } = useAlerts(3000)
   const navigate = useNavigate()
   const [recentIds, setRecentIds] = useState(getRecent)
@@ -46,7 +47,9 @@ export default function RealTimeAlertsPage() {
   }, [])
 
   const sortedAlerts = [...alerts].reverse()
+  const uniqueHosts = [...new Set(sortedAlerts.map(a => a.host).filter(Boolean))]
   const filtered = sortedAlerts.filter(a => {
+    if (hostFilter && a.host !== hostFilter) return false
     if (!search) return true
     const q = search.toLowerCase()
     return (
@@ -178,19 +181,34 @@ export default function RealTimeAlertsPage() {
           {/* Toolbar (Search & Filters) */}
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Search */}
-            <div className="flex-1 max-w-lg relative group">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="material-symbols-outlined text-[#92adc9] group-focus-within:text-primary transition-colors" style={{ fontSize: 20 }}>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#92adc9] text-[20px]">
                   search
                 </span>
+                <input
+                  className="h-9 w-64 rounded-lg bg-[#233648] border border-transparent pl-10 pr-4 text-sm text-white placeholder-[#92adc9] focus:border-primary/50 focus:bg-[#1c2936] focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all"
+                  placeholder="Search host, process, path..."
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
               </div>
-              <input
-                className="block w-full rounded-lg border-none bg-[#233648] py-2.5 pl-10 pr-4 text-white placeholder-[#92adc9] focus:ring-2 focus:ring-primary focus:bg-[#2b4257] sm:text-sm transition-all"
-                placeholder="Search IP, Hostname, Threat ID..."
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+              <select
+                className="h-9 rounded-lg bg-[#233648] border border-transparent px-3 text-sm text-white focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                value={hostFilter}
+                onChange={e => setHostFilter(e.target.value)}
+              >
+                <option value="">All Hosts</option>
+                {uniqueHosts.map(h => <option key={h} value={h}>{h}</option>)}
+              </select>
+              <button className="flex h-9 items-center gap-2 rounded-lg bg-[#233648] px-3 hover:bg-[#2f465c] transition-colors border border-transparent hover:border-primary/30">
+                <span className="text-white text-xs font-medium">Type:</span>
+                <span className="text-primary text-xs font-bold">All</span>
+                <span className="material-symbols-outlined text-[#92adc9]" style={{ fontSize: 18 }}>
+                  expand_more
+                </span>
+              </button>
             </div>
 
             {/* Filters */}
@@ -331,9 +349,15 @@ export default function RealTimeAlertsPage() {
                           <div className="text-xs text-[#92adc9] font-mono">{alert.process_name || 'unknown'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/20">
-                            New
-                          </span>
+                          {alert.status === 'acknowledged' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/20">Acknowledged</span>
+                          ) : alert.status === 'escalated' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-warning/20 text-warning border border-warning/20">Escalated</span>
+                          ) : alert.status === 'resolved' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-success/20 text-success border border-success/20">Resolved</span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium bg-primary/20 text-primary border border-primary/20">New</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">

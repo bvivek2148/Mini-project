@@ -73,3 +73,6 @@
 2026-02-22 19:16:00,541 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config D:\Delete folder-C\Mini project\ransom_trap\config\config.yaml
 2026-02-22 19:16:00,637 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
 2026-02-22 19:16:00,638 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\documents\bank_logins.txt
+2026-02-24 19:13:13,796 [INFO] ransom_trap.agent: Starting Ransom-Trap agent with config D:\Delete folder-C\Mini project\ransom_trap\config\config.yaml
+2026-02-24 19:13:13,805 [INFO] ransom_trap.agent: Honeytokens active at 6 paths
+2026-02-24 19:13:13,806 [INFO] ransom_trap.agent: Sending startup test honeytoken alert for d:\delete folder-c\mini project\test_files\desktop\passwords.xlsx

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { fetchAlerts } from '../api.js'
+import { fetchAlerts, acknowledgeAlert } from '../api.js'
 
 function formatTs(ts) {
   if (!ts) return '—'
@@ -43,7 +43,7 @@ export default function IncidentsPage() {
   const [incidentsMenuOpen, setIncidentsMenuOpen] = useState(false)
   const [note, setNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
-  const [recentIds, setRecentIds] = useState(getRecent)
+  const [alertStatus, setAlertStatus] = useState(null) // null | 'acknowledged' | 'escalated' | 'resolved'
 
   useEffect(() => {
     fetchAlerts().then(data => {
@@ -53,10 +53,10 @@ export default function IncidentsPage() {
       if (isNaN(idx)) idx = data.length - 1
       const found = idx >= 0 ? data[idx] ?? null : null
       setAlert(found)
+      setAlertStatus(found?.status ?? null)
       setLoading(false)
       if (idx >= 0 && !isNaN(idx)) {
         saveRecent(idx)
-        setRecentIds(getRecent())
       }
     }).catch(() => setLoading(false))
   }, [id])
@@ -188,10 +188,18 @@ export default function IncidentsPage() {
               <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 border-b border-surface-dark pb-6">
                 <div className="flex flex-col gap-2 max-w-3xl">
                   <div className="flex items-center gap-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${isRansomware ? 'bg-danger/20 text-danger border-danger/20' : 'bg-orange-500/20 text-orange-400 border-orange-500/20'}`}>
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${isRansomware ? 'bg-danger/20 text-danger border-danger/20' : 'bg-orange-500/20 text-orange-400 border-orange-500/20'
+                      }`}>
                       {isRansomware ? 'Critical' : 'High'}
                     </span>
-                    <span className="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-surface-dark text-text-secondary border border-surface-dark">Active</span>
+                    {alertStatus ? (
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider border ${alertStatus === 'acknowledged' ? 'bg-blue-500/20 text-blue-400 border-blue-500/20' :
+                        alertStatus === 'escalated' ? 'bg-warning/20 text-warning border-warning/20' :
+                          'bg-success/20 text-success border-success/20'
+                        }`}>{alertStatus}</span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider bg-surface-dark text-text-secondary border border-surface-dark">Active</span>
+                    )}
                     <span className="text-text-secondary text-sm">Detected {timeAgo(alert.timestamp)}</span>
                   </div>
                   <h1 className="text-3xl lg:text-4xl font-bold text-white tracking-tight">{alertTitle}</h1>
@@ -202,13 +210,30 @@ export default function IncidentsPage() {
                     <span className="material-symbols-outlined text-[20px]">ios_share</span>
                     Export
                   </button>
-                  <button className="flex items-center gap-2 h-10 px-5 bg-primary hover:bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-[0_0_15px_rgba(19,127,236,0.4)] transition-all">
-                    <span className="material-symbols-outlined text-[20px]">block</span>
-                    Quarantine Host
+                  <button className="flex items-center gap-2 h-10 px-5 bg-primary hover:bg-blue-600 text-white text-sm font-semibold rounded-lg shadow-[0_0_15px_rgba(19,127,236,0.4)] transition-all"
+                    onClick={async () => {
+                      await acknowledgeAlert(currentIdx, { status: 'acknowledged' })
+                      setAlertStatus('acknowledged')
+                    }}>
+                    <span className="material-symbols-outlined text-[20px]">task_alt</span>
+                    Acknowledge
                   </button>
-                  <button className="flex items-center gap-2 h-10 px-5 bg-surface-dark hover:bg-[#2f455a] text-white text-sm font-semibold rounded-lg transition-colors" onClick={() => navigate('/Incidents')}>
+                  <button className="flex items-center gap-2 h-10 px-5 bg-warning/20 hover:bg-warning/30 border border-warning/20 text-warning text-sm font-semibold rounded-lg transition-colors"
+                    onClick={async () => {
+                      await acknowledgeAlert(currentIdx, { status: 'escalated' })
+                      setAlertStatus('escalated')
+                    }}>
+                    <span className="material-symbols-outlined text-[20px]">priority_high</span>
+                    Escalate
+                  </button>
+                  <button className="flex items-center gap-2 h-10 px-5 bg-surface-dark hover:bg-[#2f455a] text-white text-sm font-semibold rounded-lg transition-colors"
+                    onClick={async () => {
+                      await acknowledgeAlert(currentIdx, { status: 'resolved' })
+                      setAlertStatus('resolved')
+                      navigate('/Incidents')
+                    }}>
                     <span className="material-symbols-outlined text-[20px]">check_circle</span>
-                    Dismiss
+                    Resolve
                   </button>
                 </div>
               </div>

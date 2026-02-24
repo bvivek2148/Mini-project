@@ -1,21 +1,41 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchConfig } from '../api.js'
+import { fetchConfig, patchConfig } from '../api.js'
 
 export default function ThresholdConfigurationPage() {
   const navigate = useNavigate()
   const [config, setConfig] = useState(null)
-  const [saved, setSaved] = useState(false)
+
+  const [killEnabled, setKillEnabled] = useState(false)
+  const [emailEnabled, setEmailEnabled] = useState(false)
+  const [telegramEnabled, setTelegramEnabled] = useState(false)
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
 
   useEffect(() => {
-    fetchConfig().then(setConfig).catch(() => { })
+    fetchConfig().then(cfg => {
+      setConfig(cfg)
+      setKillEnabled(cfg.kill_on_detection ?? false)
+      setEmailEnabled(cfg.email_enabled ?? false)
+      setTelegramEnabled(cfg.telegram_enabled ?? false)
+      setWhatsappEnabled(cfg.whatsapp_enabled ?? false)
+    }).catch(() => { })
   }, [])
 
   const entropyThreshold = config ? config.entropy_threshold : 7.0
-  const minFiles = config ? config.min_suspicious_files : 3
   const timeWindow = config ? config.time_window_seconds : 5
-  // Normalize entropy threshold to 0–1 range for slider (typical range 5–8)
   const sliderVal = Math.min(1, Math.max(0, (entropyThreshold - 5) / 3)).toFixed(2)
+
+  async function handleToggle(field, value, setter) {
+    setter(value)
+    try {
+      await patchConfig({ [field]: value })
+      setToastMsg(value ? `${field} enabled` : `${field} disabled`)
+      setTimeout(() => setToastMsg(''), 3000)
+    } catch {
+      setter(!value) // revert on error
+    }
+  }
 
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display antialiased overflow-hidden">
@@ -106,6 +126,106 @@ export default function ThresholdConfigurationPage() {
                   </button>
                 </div>
               </div>
+
+              {/* ── Response Controls ───────────────────────────────── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Auto-Kill Toggle */}
+                <div className="rounded-xl border border-border-dark bg-surface-dark p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="material-symbols-outlined text-danger text-[20px]">gpp_bad</span>
+                      <h3 className="text-white font-bold text-sm">Auto-Kill on Detection</h3>
+                    </div>
+                    <p className="text-text-secondary text-xs">Automatically terminate suspicious processes when ransomware is detected.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={killEnabled}
+                    onClick={() => handleToggle('kill_on_detection', !killEnabled, setKillEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-dark ${killEnabled ? 'bg-danger' : 'bg-[#2a3d51]'
+                      }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${killEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                  </button>
+                </div>
+
+                {/* Email Notifications Toggle */}
+                <div className="rounded-xl border border-border-dark bg-surface-dark p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="material-symbols-outlined text-primary text-[20px]">mail</span>
+                      <h3 className="text-white font-bold text-sm">Email Notifications</h3>
+                    </div>
+                    <p className="text-text-secondary text-xs">Send instant email when an alert fires. Configure SMTP in config.yaml.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={emailEnabled}
+                    onClick={() => handleToggle('email_enabled', !emailEnabled, setEmailEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-dark ${emailEnabled ? 'bg-primary' : 'bg-[#2a3d51]'
+                      }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${emailEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                  </button>
+                </div>
+
+                {/* Telegram Notifications Toggle */}
+                <div className="rounded-xl border border-border-dark bg-surface-dark p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="material-symbols-outlined text-[#0088cc] text-[20px]">send</span>
+                      <h3 className="text-white font-bold text-sm">Telegram Alerts</h3>
+                    </div>
+                    <p className="text-text-secondary text-xs">Send instant Telegram messages. Configure bot token in config.yaml.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={telegramEnabled}
+                    onClick={() => handleToggle('telegram_enabled', !telegramEnabled, setTelegramEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-dark ${telegramEnabled ? 'bg-[#0088cc]' : 'bg-[#2a3d51]'
+                      }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${telegramEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                  </button>
+                </div>
+
+                {/* WhatsApp Notifications Toggle */}
+                <div className="rounded-xl border border-border-dark bg-surface-dark p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="material-symbols-outlined text-[#25D366] text-[20px]">chat</span>
+                      <h3 className="text-white font-bold text-sm">WhatsApp Alerts</h3>
+                    </div>
+                    <p className="text-text-secondary text-xs">Send instant WhatsApp messages via Meta API. Configure in config.yaml.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={whatsappEnabled}
+                    onClick={() => handleToggle('whatsapp_enabled', !whatsappEnabled, setWhatsappEnabled)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface-dark ${whatsappEnabled ? 'bg-[#25D366]' : 'bg-[#2a3d51]'
+                      }`}
+                  >
+                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${whatsappEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Toast */}
+              {toastMsg && (
+                <div className="fixed bottom-6 right-6 bg-surface-dark border border-primary/30 text-white text-sm px-4 py-2 rounded-lg shadow-xl z-50 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[18px]">check_circle</span>
+                  {toastMsg}
+                </div>
+              )}
 
               {/* Warning Banner */}
               <div className="@container">

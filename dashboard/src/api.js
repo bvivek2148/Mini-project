@@ -50,3 +50,25 @@ export async function fetchConfig() {
     if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`)
     return res.json()
 }
+
+export async function patchConfig(data) {
+    const res = await fetch(`${BASE}/config`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    })
+    if (!res.ok) throw new Error(`Failed to patch config: ${res.status}`)
+    return res.json()
+}
+
+// ── Alert acknowledgment ───────────────────────────────────────────────────────
+export async function acknowledgeAlert(index, patch) {
+    // patch: { status: 'acknowledged' | 'resolved' | 'escalated', acknowledged_by?: string }
+    const res = await fetch(`${BASE}/alerts/${index}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+    })
+    if (!res.ok) throw new Error(`Failed to update alert: ${res.status}`)
+    return res.json()
+}

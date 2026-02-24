@@ -54,6 +54,33 @@ export default function DashboardOverviewPage() {
   const honeytokenAlerts = alerts.filter(a => a.alert_type === 'honeytoken_access')
   const recentAlerts = [...alerts].reverse().slice(0, 3)
 
+  // ── Timeline chart data (last 60 min, 12 x 5-min buckets) ─────────────────
+  const timelineBuckets = React.useMemo(() => {
+    const now = Date.now() / 1000
+    const buckets = Array.from({ length: 12 }, (_, i) => ({ label: `${(11 - i) * 5}m`, count: 0, start: now - (12 - i) * 300, end: now - (11 - i) * 300 }))
+    alerts.forEach(a => {
+      const ts = a.timestamp || 0
+      const b = buckets.find(b => ts >= b.start && ts < b.end)
+      if (b) b.count++
+    })
+    return buckets
+  }, [alerts])
+  const maxBucket = Math.max(1, ...timelineBuckets.map(b => b.count))
+
+  // ── Per-host breakdown ─────────────────────────────────────────────────────
+  const hostMap = React.useMemo(() => {
+    const map = {}
+    alerts.forEach(a => {
+      const h = a.host || 'Unknown'
+      if (!map[h]) map[h] = { host: h, total: 0, ransomware: 0, honeytoken: 0, lastTs: 0 }
+      map[h].total++
+      if (a.alert_type === 'ransomware_suspected') map[h].ransomware++
+      else map[h].honeytoken++
+      if ((a.timestamp || 0) > map[h].lastTs) map[h].lastTs = a.timestamp
+    })
+    return Object.values(map).sort((a, b) => b.total - a.total)
+  }, [alerts])
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
       {sidebarOpen ? (
@@ -578,6 +605,88 @@ export default function DashboardOverviewPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Alert Activity Timeline (Feature 4) ────────────────────── */}
+          <div className="px-6 lg:px-10 pb-4">
+            <div className="bg-surface-dark rounded-xl border border-white/5 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-white font-bold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-[20px]">bar_chart</span>
+                  Alert Activity — Last 60 min
+                </h3>
+                <span className="text-xs text-text-secondary">{alerts.length} total alerts</span>
+              </div>
+              <div className="flex items-end gap-1 h-20">
+                {timelineBuckets.map((b, i) => (
+                  <div key={i} className="flex flex-col items-center flex-1 gap-1" title={`${b.count} alert(s) — ${b.label} ago`}>
+                    <div
+                      className={`w-full rounded-sm transition-all ${b.count > 0 ? 'bg-primary hover:bg-blue-400' : 'bg-white/5'}`}
+                      style={{ height: `${Math.max(4, (b.count / maxBucket) * 64)}px` }}
+                    />
+                    {i % 3 === 0 && <span className="text-[9px] text-text-secondary">{b.label}</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Per-Host Breakdown (Feature 3) ─────────────────────────── */}
+          {hostMap.length > 0 && (
+            <div className="px-6 lg:px-10 pb-8">
+              <div className="bg-surface-dark rounded-xl border border-white/5 overflow-hidden">
+                <div className="p-4 border-b border-white/5 bg-white/5">
+                  <h3 className="text-white font-bold flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary text-[20px]">dns</span>
+                    Active Hosts — {hostMap.length} machine{hostMap.length !== 1 ? 's' : ''}
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-background-dark/50 text-text-secondary border-b border-white/5">
+                      <tr>
+                        <th className="px-5 py-3 font-semibold">Hostname</th>
+                        <th className="px-5 py-3 font-semibold">Total Alerts</th>
+                        <th className="px-5 py-3 font-semibold">Ransomware</th>
+                        <th className="px-5 py-3 font-semibold">Honeytoken</th>
+                        <th className="px-5 py-3 font-semibold text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {hostMap.map(h => (
+                        <tr key={h.host} className="hover:bg-white/5 transition-colors">
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`size-2 rounded-full ${h.ransomware > 0 ? 'bg-danger animate-pulse' : 'bg-warning'}`} />
+                              <span className="text-white font-mono font-medium">{h.host}</span>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={`font-bold ${h.total > 3 ? 'text-danger' : h.total > 1 ? 'text-warning' : 'text-text-secondary'}`}>{h.total}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {h.ransomware > 0
+                              ? <span className="text-danger font-semibold">{h.ransomware} 🔴</span>
+                              : <span className="text-text-secondary">—</span>}
+                          </td>
+                          <td className="px-5 py-3">
+                            {h.honeytoken > 0
+                              ? <span className="text-orange-400 font-semibold">{h.honeytoken} 🟠</span>
+                              : <span className="text-text-secondary">—</span>}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <Link to="/Incidents" className="text-primary hover:text-white text-xs font-semibold transition-colors">
+                              Investigate →
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </main>
       <div
@@ -621,6 +730,6 @@ export default function DashboardOverviewPage() {
           </a>
         </div>
       </div>
-    </div>
+    </div >
   )
 }

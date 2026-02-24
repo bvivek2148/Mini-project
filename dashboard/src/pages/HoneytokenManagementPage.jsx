@@ -21,6 +21,7 @@ export default function HoneytokenManagementPage() {
 
   // Refresh token list whenever alerts change (new triggers!)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingTokens(true)
     fetchHoneytokens()
       .then(data => { setTokens(data); setLoadingTokens(false) })
