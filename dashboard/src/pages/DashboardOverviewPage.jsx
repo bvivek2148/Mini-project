@@ -120,6 +120,14 @@ export default function DashboardOverviewPage() {
                 <span className="text-sm font-medium leading-normal">Overview</span>
               </Link>
               <Link
+                to="/scan"
+                className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
+                onClick={() => setSidebarOpen(false)}
+              >
+                <span className="material-symbols-outlined">document_scanner</span>
+                <span className="text-sm font-medium leading-normal">Manual Scan</span>
+              </Link>
+              <Link
                 to="/Incidents"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
                 onClick={() => setSidebarOpen(false)}

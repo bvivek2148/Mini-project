@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -333,10 +333,13 @@ async def patch_config(request: Request) -> Dict[str, Any]:
     # Apply supported fields
     detection = cfg.setdefault("detection", {})
     notifications = cfg.setdefault("notifications", {})
+    agent = cfg.setdefault("agent", {})
     email_cfg = notifications.setdefault("email", {})
     tg_cfg = notifications.setdefault("telegram", {})
     wa_cfg = notifications.setdefault("whatsapp", {})
 
+    if "monitored_paths" in patch:
+        agent["monitored_paths"] = patch["monitored_paths"]
     if "kill_on_detection" in patch:
         detection["kill_on_detection"] = bool(patch["kill_on_detection"])
     if "entropy_threshold" in patch:
@@ -359,6 +362,37 @@ async def patch_config(request: Request) -> Dict[str, Any]:
 
     return {"status": "ok"}
 
+
+@app.post("/scan", response_class=JSONResponse)
+async def scan_files(files: List[UploadFile] = File(...)) -> Dict[str, Any]:
+    """On-demand Drag and Drop Scanner."""
+    import tempfile
+    from agent.entropy import compute_shannon_entropy
+
+    cfg = _load_config_raw()
+    threshold = (cfg.get("detection") or {}).get("entropy_threshold", 7.0)
+
+    results = []
+    for file in files:
+        content = await file.read()
+        
+        # Write to a temp file so we can reuse the agent's OS-level entropy function
+        with tempfile.NamedTemporaryFile(delete=False) as tmp:
+            tmp.write(content)
+            tmp_path = tmp.name
+
+        entropy = compute_shannon_entropy(tmp_path)
+        Path(tmp_path).unlink(missing_ok=True)
+        if entropy is None:
+            entropy = 0.0
+
+        results.append({
+            "filename": file.filename,
+            "entropy": round(entropy, 3),
+            "compromised": entropy >= threshold
+        })
+
+    return {"results": results}
 
 
 # ------------------------------------------------------------------

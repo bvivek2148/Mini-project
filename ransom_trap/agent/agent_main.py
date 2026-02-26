@@ -85,8 +85,36 @@ def main(argv: list[str] | None = None) -> int:
     try:
         watcher.start()
         logger.info("Ransom-Trap agent is now monitoring %d path(s)", len(monitored_paths))
+        
+        last_poll = time.time()
+        poll_interval = 10
+        alert_server_url = str(agent_cfg.get("alert_server_url", "http://127.0.0.1:8000"))
+
         while True:
             time.sleep(1)
+            if time.time() - last_poll >= poll_interval:
+                last_poll = time.time()
+                try:
+                    import requests
+                    resp = requests.get(f"{alert_server_url}/config", timeout=5)
+                    if resp.status_code == 200:
+                        new_cfg = resp.json()
+                        new_paths = new_cfg.get("monitored_paths", [])
+                        if new_paths != monitored_paths:
+                            logger.info("Config changed: updating monitored paths to %s", new_paths)
+                            try:
+                                watcher.stop()
+                            except Exception:
+                                pass
+                            monitored_paths = new_paths
+                            watcher = Watcher(monitored_paths, handler, logger)
+                            watcher.start()
+                        
+                        # Apply kill_on_detection dynamically
+                        responder_kill = new_cfg.get("kill_on_detection", responder.kill_on_detection)
+                        responder.kill_on_detection = responder_kill
+                except Exception as e:
+                    logger.debug("Failed to poll server config: %s", e)
     except KeyboardInterrupt:
         logger.info("Stopping Ransom-Trap agent (KeyboardInterrupt)")
     finally:

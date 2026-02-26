@@ -12,6 +12,7 @@ import HoneytokenManagementPage from './pages/HoneytokenManagementPage.jsx'
 import HoneytokenAccessLogsPage from './pages/HoneytokenAccessLogsPage.jsx'
 import { UserManagementPage } from './pages/Placeholders.jsx'
 import AnalystsPage from './pages/AnalystsPage.jsx'
+import ManualScanPage from './pages/ManualScanPage.jsx'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardOverviewPage />} />
+        <Route path="/scan" element={<ManualScanPage />} />
         {/* /Incidents = AlertDetailsPage, auto-loads latest alert when no :id */}
         <Route path="/Incidents" element={<IncidentsPage />} />
         {/* Full alert list */}

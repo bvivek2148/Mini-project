@@ -10,6 +10,8 @@ export default function ThresholdConfigurationPage() {
   const [emailEnabled, setEmailEnabled] = useState(false)
   const [telegramEnabled, setTelegramEnabled] = useState(false)
   const [whatsappEnabled, setWhatsappEnabled] = useState(false)
+  const [monitoredPaths, setMonitoredPaths] = useState([])
+  const [newPath, setNewPath] = useState('')
   const [toastMsg, setToastMsg] = useState('')
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export default function ThresholdConfigurationPage() {
       setEmailEnabled(cfg.email_enabled ?? false)
       setTelegramEnabled(cfg.telegram_enabled ?? false)
       setWhatsappEnabled(cfg.whatsapp_enabled ?? false)
+      setMonitoredPaths(cfg.monitored_paths || [])
     }).catch(() => { })
   }, [])
 
@@ -34,6 +37,33 @@ export default function ThresholdConfigurationPage() {
       setTimeout(() => setToastMsg(''), 3000)
     } catch {
       setter(!value) // revert on error
+    }
+  }
+
+  async function handleAddPath() {
+    const trimmed = newPath.trim()
+    if (!trimmed || monitoredPaths.includes(trimmed)) return
+    const updated = [...monitoredPaths, trimmed]
+    setMonitoredPaths(updated)
+    setNewPath('')
+    try {
+      await patchConfig({ monitored_paths: updated })
+      setToastMsg('Path added successfully')
+      setTimeout(() => setToastMsg(''), 3000)
+    } catch {
+      setMonitoredPaths(monitoredPaths) // revert
+    }
+  }
+
+  async function handleRemovePath(pathToRemove) {
+    const updated = monitoredPaths.filter(p => p !== pathToRemove)
+    setMonitoredPaths(updated)
+    try {
+      await patchConfig({ monitored_paths: updated })
+      setToastMsg('Path removed')
+      setTimeout(() => setToastMsg(''), 3000)
+    } catch {
+      setMonitoredPaths(monitoredPaths) // revert
     }
   }
 
@@ -226,6 +256,54 @@ export default function ThresholdConfigurationPage() {
                   {toastMsg}
                 </div>
               )}
+
+              {/* ── Monitored Directories ───────────────────────────── */}
+              <div className="rounded-xl border border-border-dark bg-surface-dark p-6 mb-8">
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-white">Monitored Directories</h3>
+                  <p className="text-sm text-text-secondary mt-1">
+                    Add absolute paths to folders you want the Ransom-Trap agents to actively monitor for encryption events. Note: paths must exist on the agent machine.
+                  </p>
+                </div>
+
+                <div className="flex gap-2 items-center mb-6">
+                  <input
+                    type="text"
+                    placeholder="e.g. C:\Users\Admin\Documents"
+                    value={newPath}
+                    onChange={e => setNewPath(e.target.value)}
+                    className="flex-1 bg-[#1c2936] border border-border-dark text-white rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddPath() }}
+                  />
+                  <button
+                    onClick={handleAddPath}
+                    disabled={!newPath.trim()}
+                    className="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add</span>
+                    Add Path
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {monitoredPaths.length === 0 ? (
+                    <div className="text-sm text-text-secondary italic">No paths explicitly configured.</div>
+                  ) : (
+                    monitoredPaths.map(p => (
+                      <div key={p} className="flex items-center gap-2 bg-[#1c2936] border border-border-dark rounded-full px-4 py-1.5 group">
+                        <span className="text-sm text-white font-mono break-all line-clamp-1 max-w-xs" title={p}>{p}</span>
+                        <button
+                          onClick={() => handleRemovePath(p)}
+                          className="text-text-secondary hover:text-danger flex items-center justify-center transition-colors shrink-0"
+                          title="Remove Path"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
 
               {/* Warning Banner */}
               <div className="@container">
