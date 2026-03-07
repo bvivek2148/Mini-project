@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAlerts } from '../hooks/useAlerts.js'
 
 function formatTs(ts) {
@@ -8,6 +8,15 @@ function formatTs(ts) {
     year: 'numeric', month: 'short', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
+}
+
+function timeAgo(ts) {
+  if (!ts) return ''
+  const diff = Math.floor(Date.now() / 1000 - ts)
+  if (diff < 60) return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
 }
 
 function exportCSV(rows) {
@@ -20,20 +29,21 @@ function exportCSV(rows) {
   const blob = new Blob([csv], { type: 'text/csv' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = url; a.download = 'process_termination_log.csv'; a.click()
+  a.href = url; a.download = 'detection_event_log.csv'; a.click()
   URL.revokeObjectURL(url)
 }
 
 export default function ProcessTerminationLogPage() {
+  const navigate = useNavigate()
   const { alerts, loading, error } = useAlerts(5000)
   const [search, setSearch] = useState('')
   const [severityFilter, setSeverityFilter] = useState('All')
 
-  // Treat all alerts as detection events shown in this log
   const rows = useMemo(() => {
-    return alerts.map(a => ({
+    return alerts.map((a, idx) => ({
       ...a,
       severity: a.alert_type === 'ransomware_suspected' ? 'Critical' : 'High',
+      _alertIndex: idx,
     }))
   }, [alerts])
 
@@ -49,214 +59,317 @@ export default function ProcessTerminationLogPage() {
 
   const ransomwareCount = rows.filter(r => r.alert_type === 'ransomware_suspected').length
   const honeytokenCount = rows.filter(r => r.alert_type === 'honeytoken_access').length
+  const criticalPercent = rows.length > 0 ? Math.round((ransomwareCount / rows.length) * 100) : 0
 
-  function SeverityBadge({ severity }) {
-    const cls = {
-      Critical: 'bg-red-50 dark:bg-red-400/10 px-2 py-1 text-xs font-medium text-red-700 dark:text-red-400 ring-1 ring-inset ring-red-600/10 dark:ring-red-400/20',
-      High: 'bg-orange-50 dark:bg-orange-400/10 px-2 py-1 text-xs font-medium text-orange-700 dark:text-orange-400 ring-1 ring-inset ring-orange-600/10 dark:ring-orange-400/20',
-    }[severity] || 'bg-gray-100 text-gray-600 px-2 py-1 text-xs font-medium'
-    return <span className={`inline-flex items-center rounded-md ${cls}`}>{severity}</span>
-  }
+  /* ── Inline SVG icons (guaranteed to render) ── */
+  const ShieldIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  )
+  const KeyIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+    </svg>
+  )
+  const SkullIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="12" r="1" /><circle cx="15" cy="12" r="1" />
+      <path d="M8 20v2h8v-2" /><path d="M12.5 2C7.25 2 4 5.81 4 10.5 4 15.19 7.25 18 12 18s8-2.81 8-7.5C20 5.81 16.75 2 12.5 2z" />
+    </svg>
+  )
+  const BarChartIcon = () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  )
 
   return (
-    <div className="bg-background-light dark:bg-background-dark h-screen overflow-y-auto font-display text-slate-900 dark:text-white transition-colors duration-200">
-      <div className="relative flex min-h-screen w-full flex-col overflow-x-hidden">
-        {/* Top Navigation */}
-        <header className="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-gray-200 dark:border-[#233648] bg-white dark:bg-[#111a22] px-6 py-3 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="text-primary size-8 flex items-center justify-center">
-              <span className="material-symbols-outlined text-3xl">shield_lock</span>
+    <div className="min-h-screen bg-background-dark font-display text-white">
+
+      {/* ── TOP NAVIGATION BAR ── */}
+      <header className="flex items-center justify-between border-b border-surface-dark bg-background-dark/95 backdrop-blur-md px-6 lg:px-10 py-3 sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="size-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 flex items-center justify-center text-text-secondary hover:text-white transition-all group"
+            title="Go back"
+          >
+            <span className="material-symbols-outlined text-[20px] group-hover:-translate-x-px transition-transform">arrow_back</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-gradient-to-br from-red-500/30 to-orange-500/10 flex items-center justify-center border border-red-500/20 text-red-400">
+              <span className="material-symbols-outlined text-[20px]">receipt_long</span>
             </div>
-            <Link to="/" className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight hover:text-primary transition-colors" aria-label="Dashboard">
-              Ransom Trap
-            </Link>
+            <div>
+              <h1 className="text-lg font-bold text-white leading-tight">Detection Event Log</h1>
+              <p className="text-[11px] text-text-secondary">Process termination · Threat audit trail</p>
+            </div>
           </div>
-          <nav className="hidden lg:flex items-center gap-8 flex-1 ml-8">
-            <Link className="text-slate-500 dark:text-slate-400 hover:text-primary text-sm font-medium transition-colors" to="/">Dashboard</Link>
-            <Link className="text-slate-500 dark:text-slate-400 hover:text-primary text-sm font-medium transition-colors" to="/Incidents">Incidents</Link>
-            <span className="text-primary font-medium text-sm">Logs</span>
-          </nav>
-        </header>
 
-        <div className="flex flex-1 justify-center py-8 px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col w-full max-w-7xl flex-1 gap-6">
-            {/* Breadcrumbs */}
-            <div className="flex flex-wrap gap-2 items-center text-sm">
-              <Link className="text-slate-500 dark:text-[#92adc9] hover:text-primary font-medium" to="/">Dashboard</Link>
-              <span className="text-slate-400 dark:text-[#586e84] font-medium">/</span>
-              <span className="text-slate-900 dark:text-white font-semibold">Alert Log</span>
-            </div>
+          {!loading && !error && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-400 border border-emerald-500/20 ml-1">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              LIVE
+            </span>
+          )}
+        </div>
 
-            {/* Page Heading */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-3">
-                  <h1 className="text-slate-900 dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-tight">
-                    Detection Event Log
-                  </h1>
-                  {!loading && !error && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 px-2 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                      </span>
-                      Live
-                    </span>
-                  )}
-                </div>
-                <p className="text-slate-500 dark:text-[#92adc9] text-base font-normal max-w-2xl">
-                  Full audit trail of all detection events recorded by the Ransom Trap agent.
-                </p>
+        <div className="flex items-center gap-1">
+          <Link to="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
+            <span className="material-symbols-outlined text-[18px]">home</span>
+            <span className="hidden md:inline">Dashboard</span>
+          </Link>
+          <Link to="/Incidents" className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
+            <span className="material-symbols-outlined text-[18px]">warning</span>
+            <span className="hidden md:inline">Incidents</span>
+          </Link>
+          <Link to="/settings" className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
+            <span className="material-symbols-outlined text-[18px]">settings</span>
+            <span className="hidden md:inline">Settings</span>
+          </Link>
+        </div>
+      </header>
+
+      {/* ── MAIN CONTENT ── */}
+      <main className="max-w-7xl mx-auto px-6 lg:px-10 py-8">
+
+        {/* ── OVERVIEW SECTION ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 mb-8">
+
+          {/* Stat Card: Total Events */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-surface-dark to-background-dark border border-white/5 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="size-11 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center text-primary">
+                <BarChartIcon />
               </div>
-              <div className="flex gap-3 w-full md:w-auto">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-text-secondary bg-white/5 px-2.5 py-1 rounded-full">All Time</span>
+            </div>
+            <p className="text-3xl font-black tracking-tight">{loading ? '—' : rows.length}</p>
+            <p className="text-sm text-text-secondary mt-1">Total Events</p>
+            <div className="absolute -bottom-4 -right-4 size-24 rounded-full bg-primary/5 blur-2xl" />
+          </div>
+
+          {/* Stat Card: Ransomware */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-surface-dark to-background-dark border border-red-500/10 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="size-11 rounded-xl bg-red-500/10 border border-red-500/15 flex items-center justify-center text-red-400">
+                <SkullIcon />
+              </div>
+              {ransomwareCount > 0 && (
+                <span className="text-[10px] font-bold uppercase tracking-wider text-red-400 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20">Critical</span>
+              )}
+            </div>
+            <p className="text-3xl font-black tracking-tight text-red-400">{loading ? '—' : ransomwareCount}</p>
+            <p className="text-sm text-text-secondary mt-1">Ransomware Detected</p>
+            <div className="absolute -bottom-4 -right-4 size-24 rounded-full bg-red-500/5 blur-2xl" />
+          </div>
+
+          {/* Stat Card: Honeytoken */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-surface-dark to-background-dark border border-amber-500/10 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="size-11 rounded-xl bg-amber-500/10 border border-amber-500/15 flex items-center justify-center text-amber-400">
+                <KeyIcon />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">{criticalPercent}% Critical</span>
+            </div>
+            <p className="text-3xl font-black tracking-tight text-amber-400">{loading ? '—' : honeytokenCount}</p>
+            <p className="text-sm text-text-secondary mt-1">Honeytoken Access</p>
+            <div className="absolute -bottom-4 -right-4 size-24 rounded-full bg-amber-500/5 blur-2xl" />
+          </div>
+
+          {/* Severity Breakdown mini-visual */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-surface-dark to-background-dark border border-white/5 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/15 flex items-center justify-center text-emerald-400">
+                <ShieldIcon />
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">Protected</span>
+            </div>
+            <p className="text-sm text-text-secondary mb-3">Severity Breakdown</p>
+            {/* Mini bar chart */}
+            <div className="flex items-end gap-1.5 h-8">
+              <div className="flex-1 bg-red-500/80 rounded-t" style={{ height: rows.length > 0 ? `${Math.max((ransomwareCount / rows.length) * 100, 8)}%` : '8%' }} title={`Critical: ${ransomwareCount}`} />
+              <div className="flex-1 bg-amber-500/80 rounded-t" style={{ height: rows.length > 0 ? `${Math.max((honeytokenCount / rows.length) * 100, 8)}%` : '8%' }} title={`High: ${honeytokenCount}`} />
+            </div>
+            <div className="flex justify-between text-[10px] text-text-secondary mt-1.5">
+              <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-red-500" />Critical</span>
+              <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-amber-500" />High</span>
+            </div>
+            <div className="absolute -bottom-4 -right-4 size-24 rounded-full bg-emerald-500/5 blur-2xl" />
+          </div>
+        </div>
+
+        {/* ── FILTERS & ACTIONS BAR ── */}
+        <div className="bg-surface-dark/50 border border-white/5 rounded-2xl p-4 mb-6">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-text-secondary/50 text-[18px]">search</span>
+              <input
+                className="w-full bg-background-dark border border-white/5 rounded-xl pl-11 pr-4 py-2.5 text-sm text-white placeholder-text-secondary/40 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
+                placeholder="Search by PID, process name, host, or alert type..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              {['All', 'Critical', 'High'].map(sev => (
                 <button
-                  onClick={() => exportCSV(filtered)}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 rounded-lg bg-primary text-white px-5 h-10 text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-600 transition-colors"
+                  key={sev}
+                  onClick={() => setSeverityFilter(sev)}
+                  className={`px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${severityFilter === sev
+                    ? sev === 'Critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      : sev === 'High' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                        : 'bg-primary/20 text-primary border border-primary/30'
+                    : 'bg-white/5 text-text-secondary border border-white/5 hover:bg-white/10 hover:text-white'
+                    }`}
                 >
-                  <span className="material-symbols-outlined text-[20px]">download</span>
-                  Export CSV
+                  {sev}
                 </button>
-              </div>
+              ))}
             </div>
+            <button
+              onClick={() => exportCSV(filtered)}
+              className="flex items-center justify-center gap-2 bg-primary hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-[0.97] shadow-lg shadow-primary/20"
+            >
+              <span className="material-symbols-outlined text-[16px]">download</span>
+              Export CSV
+            </button>
+          </div>
+        </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="flex flex-col gap-1 rounded-xl p-5 bg-white dark:bg-[#192633] border border-gray-200 dark:border-[#324d67] shadow-sm">
-                <div className="flex items-center justify-between">
-                  <p className="text-slate-500 dark:text-[#92adc9] text-sm font-medium">Total Events</p>
-                  <span className="material-symbols-outlined text-slate-400 dark:text-[#586e84]">bar_chart</span>
-                </div>
-                <div className="flex items-baseline gap-2 mt-2">
-                  <p className="text-slate-900 dark:text-white text-3xl font-bold">{loading ? '—' : rows.length}</p>
-                  {!loading && <p className="text-emerald-500 text-sm font-bold">All time</p>}
-                </div>
-              </div>
-              <div className="flex flex-col gap-1 rounded-xl p-5 bg-white dark:bg-[#192633] border border-red-300 dark:border-red-900/40 shadow-sm">
-                <div className="flex items-center justify-between">
-                  <p className="text-slate-500 dark:text-[#92adc9] text-sm font-medium">Ransomware Detected</p>
-                  <span className="material-symbols-outlined text-red-400">gpp_bad</span>
-                </div>
-                <div className="flex items-baseline gap-2 mt-2">
-                  <p className="text-slate-900 dark:text-white text-3xl font-bold">{loading ? '—' : ransomwareCount}</p>
-                  {ransomwareCount > 0 && <p className="text-red-500 text-sm font-bold">CRITICAL</p>}
-                </div>
-              </div>
-              <div className="flex flex-col gap-1 rounded-xl p-5 bg-white dark:bg-[#192633] border border-gray-200 dark:border-[#324d67] shadow-sm">
-                <div className="flex items-center justify-between">
-                  <p className="text-slate-500 dark:text-[#92adc9] text-sm font-medium">Honeytoken Access</p>
-                  <span className="material-symbols-outlined text-orange-400">warning</span>
-                </div>
-                <div className="flex items-baseline gap-2 mt-2">
-                  <p className="text-slate-900 dark:text-white text-3xl font-bold">{loading ? '—' : honeytokenCount}</p>
-                  {!loading && <p className="text-orange-400 text-sm font-bold">{honeytokenCount > 0 ? 'Alerts' : 'None'}</p>}
-                </div>
-              </div>
-            </div>
-
-            {/* Filters Toolbar */}
-            <div className="flex flex-col lg:flex-row gap-4 bg-white dark:bg-[#111a22] p-4 rounded-xl border border-gray-200 dark:border-[#233648] shadow-sm">
-              <div className="flex-1">
-                <div className="relative flex w-full items-stretch">
-                  <input
-                    className="w-full rounded-l-lg border border-gray-300 dark:border-[#324d67] bg-gray-50 dark:bg-[#192633] px-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-[#92adc9] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    placeholder="Search PID, process name, host..."
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                  />
-                  <button className="flex items-center justify-center rounded-r-lg border border-l-0 border-gray-300 dark:border-[#324d67] bg-gray-100 dark:bg-[#233648] px-3 text-slate-500 dark:text-white">
-                    <span className="material-symbols-outlined">search</span>
-                  </button>
-                </div>
-              </div>
-              <div className="flex flex-wrap sm:flex-nowrap gap-3">
-                <div className="relative">
-                  <select
-                    className="h-full appearance-none rounded-lg border border-gray-300 dark:border-[#324d67] bg-gray-50 dark:bg-[#192633] pl-3 pr-10 text-sm text-slate-700 dark:text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={severityFilter}
-                    onChange={e => setSeverityFilter(e.target.value)}
-                  >
-                    <option>All</option>
-                    <option>Critical</option>
-                    <option>High</option>
-                  </select>
-                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400">
-                    <span className="material-symbols-outlined text-[20px]">expand_more</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Main Table */}
-            <div className="relative flex flex-col rounded-xl border border-gray-200 dark:border-[#233648] bg-white dark:bg-[#111a22] shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 dark:bg-[#192633] text-xs uppercase text-slate-500 dark:text-[#92adc9]">
-                    <tr>
-                      <th className="px-6 py-4 font-semibold tracking-wider whitespace-nowrap">Timestamp</th>
-                      <th className="px-6 py-4 font-semibold tracking-wider whitespace-nowrap">Severity</th>
-                      <th className="px-6 py-4 font-semibold tracking-wider whitespace-nowrap">Process Name</th>
-                      <th className="px-6 py-4 font-semibold tracking-wider whitespace-nowrap">PID</th>
-                      <th className="px-6 py-4 font-semibold tracking-wider whitespace-nowrap">Host</th>
-                      <th className="px-6 py-4 font-semibold tracking-wider whitespace-nowrap">Alert Type</th>
-                      <th className="px-6 py-4 font-semibold tracking-wider text-right">Details</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-[#233648] border-t border-gray-100 dark:border-[#233648]">
-                    {loading && (
-                      <tr><td colSpan={7} className="py-12 text-center text-[#92adc9]">
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="material-symbols-outlined animate-spin text-primary">sync</span>
-                          Connecting to server…
-                        </div>
-                      </td></tr>
-                    )}
-                    {!loading && error && (
-                      <tr><td colSpan={7} className="py-12 text-center text-red-400">{error}</td></tr>
-                    )}
-                    {!loading && !error && filtered.length === 0 && (
-                      <tr><td colSpan={7} className="py-12 text-center">
-                        <div className="flex flex-col items-center gap-2 text-[#92adc9]">
-                          <span className="material-symbols-outlined text-4xl text-green-500">verified_user</span>
-                          <span>No detection events match your filter</span>
-                        </div>
-                      </td></tr>
-                    )}
-                    {!loading && !error && [...filtered].reverse().map((r, i) => (
-                      <tr key={i} className="hover:bg-gray-50 dark:hover:bg-[#1e293b]/50 transition-colors group">
-                        <td className="px-6 py-4 font-mono text-slate-600 dark:text-slate-300 whitespace-nowrap text-xs">{formatTs(r.timestamp)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap"><SeverityBadge severity={r.severity} /></td>
-                        <td className="px-6 py-4 text-slate-900 dark:text-white font-medium font-mono text-xs">{r.process_name || '—'}</td>
-                        <td className="px-6 py-4 font-mono text-primary text-xs">{r.pid || '—'}</td>
-                        <td className="px-6 py-4 text-slate-600 dark:text-slate-300 text-xs">{r.host || '—'}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className={`flex items-center gap-1.5 font-medium text-xs ${r.alert_type === 'ransomware_suspected' ? 'text-red-400' : 'text-orange-400'}`}>
-                            <span className="material-symbols-outlined text-[16px]">{r.alert_type === 'ransomware_suspected' ? 'gpp_bad' : 'key'}</span>
-                            {r.alert_type === 'ransomware_suspected' ? 'RANSOMWARE' : 'HONEYTOKEN'}
+        {/* ── EVENT LOG TABLE ── */}
+        <div className="bg-surface-dark/50 border border-white/5 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="bg-background-dark/60">
+                  <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Timestamp</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Severity</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Process</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-text-secondary">PID</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Host</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-text-secondary">Alert Type</th>
+                  <th className="px-5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-text-secondary text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.03]">
+                {loading && (
+                  <tr><td colSpan={7} className="py-28 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="size-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                      <span className="text-text-secondary text-sm">Connecting to detection engine…</span>
+                    </div>
+                  </td></tr>
+                )}
+                {!loading && error && (
+                  <tr><td colSpan={7} className="py-28 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="size-14 rounded-full bg-red-500/10 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-red-400 text-[28px]">error</span>
+                      </div>
+                      <div>
+                        <p className="text-red-400 font-semibold text-sm">Connection Error</p>
+                        <p className="text-text-secondary text-xs mt-1">{error}</p>
+                      </div>
+                    </div>
+                  </td></tr>
+                )}
+                {!loading && !error && filtered.length === 0 && (
+                  <tr><td colSpan={7} className="py-28 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="size-14 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-emerald-400 text-[28px]">verified_user</span>
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold text-sm">No Matching Events</p>
+                        <p className="text-text-secondary text-xs mt-1">Try adjusting your search or severity filter</p>
+                      </div>
+                    </div>
+                  </td></tr>
+                )}
+                {!loading && !error && [...filtered].reverse().map((r, i) => {
+                  const isRansomware = r.alert_type === 'ransomware_suspected'
+                  return (
+                    <tr key={i} className={`transition-colors group ${isRansomware ? 'hover:bg-red-500/[0.03]' : 'hover:bg-white/[0.02]'}`}>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className={`size-2 rounded-full flex-shrink-0 ${isRansomware ? 'bg-red-500 animate-pulse' : 'bg-amber-500'}`} />
+                          <div>
+                            <span className="font-mono text-white/80 text-xs">{formatTs(r.timestamp)}</span>
+                            <span className="block text-[10px] text-text-secondary/50 font-mono mt-0.5">{timeAgo(r.timestamp)}</span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <Link
-                            to={`/alerts/${alerts.indexOf(r)}`}
-                            className="text-slate-400 hover:text-primary dark:hover:text-white transition-colors"
-                          >
-                            <span className="material-symbols-outlined">visibility</span>
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex items-center justify-between border-t border-gray-200 dark:border-[#233648] bg-gray-50 dark:bg-[#111a22] px-6 py-3">
-                <div className="text-sm text-slate-500 dark:text-[#92adc9]">
-                  Showing <span className="font-medium text-slate-900 dark:text-white">{filtered.length}</span> of{' '}
-                  <span className="font-medium text-slate-900 dark:text-white">{rows.length}</span> events
-                </div>
-              </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md ${r.severity === 'Critical'
+                          ? 'text-red-400 bg-red-500/15'
+                          : 'text-amber-400 bg-amber-500/15'
+                          }`}>
+                          <span className={`size-1.5 rounded-full ${r.severity === 'Critical' ? 'bg-red-400' : 'bg-amber-400'}`} />
+                          {r.severity}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        {r.process_name ? (
+                          <code className="text-white text-xs bg-white/5 px-2 py-0.5 rounded border border-white/5">{r.process_name}</code>
+                        ) : (
+                          <span className="text-text-secondary/30 text-xs italic">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        {r.pid ? (
+                          <code className="font-mono text-primary text-xs font-semibold">{r.pid}</code>
+                        ) : (
+                          <span className="text-text-secondary/30 text-xs italic">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-xs text-white/70">{r.host || '—'}</td>
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md ${isRansomware
+                          ? 'text-red-400 bg-red-500/15'
+                          : 'text-amber-400 bg-amber-500/15'
+                          }`}>
+                          {isRansomware ? '⚠' : '🔑'} {isRansomware ? 'Ransomware' : 'Honeytoken'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <Link
+                          to={`/alerts/${r._alertIndex}`}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-white px-3 py-1.5 rounded-lg hover:bg-white/5 transition-all opacity-50 group-hover:opacity-100"
+                        >
+                          <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                          Details
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t border-white/5 px-5 py-3 bg-background-dark/40">
+            <div className="text-xs text-text-secondary">
+              Showing <span className="font-bold text-white">{filtered.length}</span> of{' '}
+              <span className="font-bold text-white">{rows.length}</span> detection events
+            </div>
+            <div className="flex items-center gap-4 text-xs text-text-secondary">
+              <span className="flex items-center gap-1.5">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                </span>
+                Auto-refresh: 5s
+              </span>
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

@@ -2,13 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { fetchAlerts, acknowledgeAlert } from '../api.js'
 
-function formatTs(ts) {
-  if (!ts) return '—'
-  return new Date(ts * 1000).toLocaleString([], {
-    month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
-  })
-}
-
 function timeAgo(ts) {
   if (!ts) return ''
   const diff = Math.floor(Date.now() / 1000 - ts)
@@ -32,7 +25,6 @@ export default function IncidentsViewPage() {
       .catch(() => setLoading(false))
   }, [])
 
-  // Group alerts into simplified Kanban columns based on their status
   const columns = {
     new: allAlerts.filter(a => !a.status || a.status === 'new'),
     investigating: allAlerts.filter(a => a.status === 'acknowledged' || a.status === 'escalated'),
@@ -41,7 +33,6 @@ export default function IncidentsViewPage() {
 
   const handleStatusChange = async (alertIdx, newStatus) => {
     await acknowledgeAlert(alertIdx, { status: newStatus })
-    // Optimistic UI update
     setAllAlerts(prev => {
       const copy = [...prev]
       if (copy[alertIdx]) copy[alertIdx].status = newStatus
@@ -49,53 +40,68 @@ export default function IncidentsViewPage() {
     })
   }
 
+  const ransomwareCount = allAlerts.filter(a => a.alert_type === 'ransomware_suspected').length
+  const honeytokenCount = allAlerts.length - ransomwareCount
+
   const IncidentCard = ({ alert, index }) => {
     const isRansomware = alert.alert_type === 'ransomware_suspected'
-    const color = isRansomware ? 'danger' : 'orange-500'
+    const status = alert.status || 'new'
 
     return (
-      <div className="bg-surface-dark border border-white/10 rounded-lg p-4 flex flex-col gap-3 hover:border-primary/50 transition-colors shadow-lg">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`size-2 rounded-full bg-${color} animate-pulse`} />
-            <span className="text-white font-medium text-sm truncate max-w-[150px]" title={alert.host}>
+      <div className="group bg-background-dark border border-white/5 rounded-xl p-4 hover:border-primary/30 transition-all duration-200 hover:shadow-[0_0_20px_rgba(59,130,246,0.08)]">
+        {/* Top Row: Host + Time */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`size-2.5 rounded-full flex-shrink-0 ${isRansomware ? 'bg-red-500' : 'bg-amber-500'} ${status === 'new' ? 'animate-pulse' : ''}`} />
+            <span className="text-white font-semibold text-sm truncate" title={alert.host}>
               {alert.host || 'Unknown Host'}
             </span>
           </div>
-          <span className="text-xs text-text-secondary font-mono">{timeAgo(alert.timestamp)}</span>
+          <span className="text-[11px] text-text-secondary font-mono flex-shrink-0 ml-2">{timeAgo(alert.timestamp)}</span>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <span className={`text-xs font-bold uppercase tracking-wide text-${color}`}>
+        {/* Alert Type Badge */}
+        <div className="mb-3">
+          <span className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${isRansomware
+            ? 'text-red-400 bg-red-500/10 border-red-500/20'
+            : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+            }`}>
+            <span className="material-symbols-outlined text-[12px]">{isRansomware ? 'gpp_bad' : 'key'}</span>
             {isRansomware ? 'Ransomware' : 'Honeytoken'}
           </span>
+        </div>
+
+        {/* File Path */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="material-symbols-outlined text-[14px] text-text-secondary flex-shrink-0">description</span>
           <span className="text-text-secondary text-xs truncate" title={alert.path || 'Unknown Path'}>
             {alert.path || 'Unknown Path'}
           </span>
         </div>
 
-        <div className="flex items-center justify-between mt-2 pt-3 border-t border-white/5">
-          <div className="flex gap-2">
+        {/* Actions Footer */}
+        <div className="flex items-center justify-between pt-3 border-t border-white/5">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => navigate(`/alerts/${index}`)}
-              className="text-xs font-medium text-text-secondary hover:text-white flex items-center gap-1 transition-colors"
+              className="text-xs font-medium text-text-secondary hover:text-white flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-white/5 transition-all"
             >
-              <span className="material-symbols-outlined text-[14px]">visibility</span>
+              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
               View
             </button>
             {(!alert.status || alert.status === 'new') && (
               <button
                 onClick={() => handleStatusChange(index, 'acknowledged')}
-                className="text-xs font-medium text-primary hover:text-blue-400 flex items-center gap-1 transition-colors"
+                className="text-xs font-medium text-primary hover:text-blue-300 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-primary/10 transition-all"
               >
                 <span className="material-symbols-outlined text-[14px]">task_alt</span>
-                Ack
+                Acknowledge
               </button>
             )}
             {(alert.status === 'acknowledged' || alert.status === 'escalated') && (
               <button
                 onClick={() => handleStatusChange(index, 'resolved')}
-                className="text-xs font-medium text-success hover:text-green-400 flex items-center gap-1 transition-colors"
+                className="text-xs font-medium text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/10 transition-all"
               >
                 <span className="material-symbols-outlined text-[14px]">check_circle</span>
                 Resolve
@@ -103,9 +109,9 @@ export default function IncidentsViewPage() {
             )}
           </div>
 
-          {/* Dummy Analyst Avatar */}
+          {/* Analyst Avatar */}
           {alert.status && alert.status !== 'new' && (
-            <div className="size-6 rounded-full bg-primary/20 border border-primary/50 flex items-center justify-center text-[10px] text-primary font-bold" title="Claimed by Analyst">
+            <div className="size-7 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center text-[10px] text-primary font-bold" title="Assigned Analyst">
               {alert.status === 'resolved' ? 'JD' : 'You'}
             </div>
           )}
@@ -115,88 +121,137 @@ export default function IncidentsViewPage() {
   }
 
   return (
-    <div className="bg-background-light dark:bg-background-dark min-h-screen flex flex-col font-display text-slate-900 dark:text-white">
-      {/* ── TOP NAVIGATION ──────────────────────────────────────────────── */}
-      <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-surface-dark bg-background-dark px-10 py-3 sticky top-0 z-50">
-        <div className="flex items-center gap-8">
-          <div className="flex items-center gap-4 text-white">
-            <div className="size-8 text-primary">
-              <span className="material-symbols-outlined text-4xl">shield_lock</span>
+    <div className="min-h-screen bg-background-dark font-display text-white">
+
+      {/* ── TOP NAVIGATION BAR ── */}
+      <header className="flex items-center justify-between border-b border-surface-dark bg-background-dark px-6 lg:px-10 py-3 sticky top-0 z-50">
+        <div className="flex items-center gap-3">
+          {/* Go Back */}
+          <button
+            onClick={() => navigate(-1)}
+            className="size-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/15 flex items-center justify-center text-text-secondary hover:text-white transition-all group"
+            title="Go back"
+          >
+            <span className="material-symbols-outlined text-[20px] group-hover:-translate-x-px transition-transform">arrow_back</span>
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="size-9 rounded-xl bg-gradient-to-br from-amber-500/30 to-amber-500/10 flex items-center justify-center border border-amber-500/20">
+              <span className="material-symbols-outlined text-amber-400 text-[20px]">crisis_alert</span>
             </div>
-            <Link to="/" className="text-white text-lg font-bold leading-tight tracking-[-0.015em] hover:text-white">
-              Ransom Trap
-            </Link>
-          </div>
-          <div className="hidden lg:flex items-center gap-9">
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/">Dashboard</Link>
-            <Link className="text-white text-sm font-medium leading-normal" to="/Incidents">Incidents</Link>
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/alerts">Alerts</Link>
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/Incidents/analysts">Analysts</Link>
+            <div>
+              <h1 className="text-lg font-bold text-white leading-tight">Incident Command</h1>
+              <p className="text-[11px] text-text-secondary">Threat response · Triage · Analyst assignment</p>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="relative hidden md:flex items-center">
-            <span className="absolute left-3 text-text-secondary material-symbols-outlined text-[20px]">search</span>
-            <input
-              className="w-64 bg-surface-dark border-none rounded-lg py-2 pl-10 pr-4 text-sm text-white placeholder-text-secondary focus:ring-1 focus:ring-primary"
-              placeholder="Search incidents..."
-            />
-          </div>
-          <div
-            className="bg-center bg-no-repeat bg-cover rounded-full size-9 border border-surface-dark"
-            style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCBGWm_A3xJs9cVmw2Vk29_idfHrCo_D1p9unfQzQElfFNU9Gk4kkUjbjfRdhvC9wl00AQ9gB_1YyX852nH73PegjhE56mnmqlhHsCLg4SEXUYIMYVXut5DN10Aj2FfmKwTJC7BEuDxt1GTorUe-tBbKSK95ca42MYiF0J5cz219c0EWtguU3ucUs86Y9xMUaRs6PN5aSzNR8a3SRB3eghgPemyLdxbxvhuM7M5s2lShyG5wlgn9H5V7F2G3qtCTK9_Ejlv1UBkebo")' }}
-          />
+
+        <div className="flex items-center gap-1">
+          <Link to="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
+            <span className="material-symbols-outlined text-[18px]">home</span>
+            <span className="hidden md:inline">Dashboard</span>
+          </Link>
+          <Link to="/alerts" className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
+            <span className="material-symbols-outlined text-[18px]">notifications</span>
+            <span className="hidden md:inline">Alerts</span>
+          </Link>
+          <Link to="/Incidents/analysts" className="flex items-center gap-2 px-3 py-2 rounded-lg text-text-secondary hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
+            <span className="material-symbols-outlined text-[18px]">group</span>
+            <span className="hidden md:inline">Analysts</span>
+          </Link>
         </div>
       </header>
 
-      {/* ── MAIN CONTENT ────────────────────────────────────────────────── */}
-      <main className="flex-1 flex flex-col p-6 lg:p-10 max-w-[1600px] mx-auto w-full">
+      {/* ── MAIN CONTENT ── */}
+      <main className="max-w-[1600px] mx-auto px-6 lg:px-10 py-8">
 
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
-              Incident Command
-              <span className="text-sm font-medium px-2 py-1 rounded-md bg-white/10 text-text-secondary border border-white/10 relative -top-1">
-                {allAlerts.length} Total
-              </span>
-            </h1>
-            <p className="text-text-secondary mt-1">Manage active threat response workflows and assign analysts.</p>
+        {/* Stats Overview Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-surface-dark border border-white/5 rounded-xl p-5 flex items-center gap-4">
+            <div className="size-12 rounded-xl bg-white/5 flex items-center justify-center border border-white/5">
+              <span className="material-symbols-outlined text-white text-[24px]">format_list_numbered</span>
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{allAlerts.length}</p>
+              <p className="text-xs text-text-secondary">Total Incidents</p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link to="/Incidents/terminationlog" className="flex items-center gap-2 px-4 py-2 bg-surface-dark hover:bg-white/10 border border-white/10 rounded-lg text-sm font-medium transition-colors">
-              <span className="material-symbols-outlined text-[18px] text-danger">receipt_long</span>
+          <div className="bg-surface-dark border border-white/5 rounded-xl p-5 flex items-center gap-4">
+            <div className="size-12 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/10">
+              <span className="material-symbols-outlined text-amber-400 text-[24px]">error</span>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-amber-400">{columns.new.length}</p>
+              <p className="text-xs text-text-secondary">Pending Triage</p>
+            </div>
+          </div>
+          <div className="bg-surface-dark border border-white/5 rounded-xl p-5 flex items-center gap-4">
+            <div className="size-12 rounded-xl bg-red-500/10 flex items-center justify-center border border-red-500/10">
+              <span className="material-symbols-outlined text-red-400 text-[24px]">gpp_bad</span>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-red-400">{ransomwareCount}</p>
+              <p className="text-xs text-text-secondary">Ransomware</p>
+            </div>
+          </div>
+          <div className="bg-surface-dark border border-white/5 rounded-xl p-5 flex items-center gap-4">
+            <div className="size-12 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/10">
+              <span className="material-symbols-outlined text-emerald-400 text-[24px]">verified_user</span>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-emerald-400">{columns.resolved.length}</p>
+              <p className="text-xs text-text-secondary">Resolved</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Bar */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-text-secondary">Quick links:</span>
+            <Link to="/Incidents/terminationlog" className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-dark hover:bg-white/10 border border-white/5 rounded-lg text-xs font-medium transition-all hover:border-white/10">
+              <span className="material-symbols-outlined text-[14px] text-red-400">receipt_long</span>
               Termination Log
             </Link>
-            <Link to="/reports" className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-600 rounded-lg text-sm font-medium text-white shadow-lg transition-colors">
-              <span className="material-symbols-outlined text-[18px]">summarize</span>
-              Generate Report
+            <Link to="/reports" className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-dark hover:bg-white/10 border border-white/5 rounded-lg text-xs font-medium transition-all hover:border-white/10">
+              <span className="material-symbols-outlined text-[14px] text-primary">summarize</span>
+              Reports
+            </Link>
+            <Link to="/scan" className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-dark hover:bg-white/10 border border-white/5 rounded-lg text-xs font-medium transition-all hover:border-white/10">
+              <span className="material-symbols-outlined text-[14px] text-amber-400">document_scanner</span>
+              Scanner
             </Link>
           </div>
         </div>
 
+        {/* Kanban Board */}
         {loading ? (
-          <div className="flex items-center justify-center py-24 gap-2 text-text-secondary">
-            <span className="material-symbols-outlined animate-spin text-primary">sync</span>
-            Loading incidents...
+          <div className="flex flex-col items-center justify-center py-32 gap-3">
+            <span className="material-symbols-outlined animate-spin text-primary text-[32px]">progress_activity</span>
+            <span className="text-text-secondary text-sm">Loading incidents...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 min-h-[600px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 min-h-[550px]">
 
-            {/* Column 1: New / Unassigned */}
-            <div className="flex flex-col bg-surface-dark/50 rounded-xl border border-white/5 overflow-hidden">
-              <div className="p-4 border-b border-warning/20 bg-warning/5 flex items-center justify-between">
-                <h2 className="font-bold flex items-center gap-2 text-warning">
-                  <span className="material-symbols-outlined text-[20px]">error</span>
-                  New Alerts
-                </h2>
-                <span className="size-6 rounded-full bg-warning/20 text-warning flex items-center justify-center text-xs font-bold">
+            {/* ── New Alerts Column ── */}
+            <div className="flex flex-col rounded-2xl border border-white/5 overflow-hidden bg-surface-dark/30">
+              <div className="p-4 border-b border-amber-500/15 bg-gradient-to-r from-amber-500/[0.08] to-transparent flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-amber-400 text-[18px]">error</span>
+                  </div>
+                  <h2 className="font-bold text-amber-400 text-sm">New Alerts</h2>
+                </div>
+                <span className="min-w-[28px] h-7 rounded-full bg-amber-500/15 text-amber-400 flex items-center justify-center text-xs font-bold px-2">
                   {columns.new.length}
                 </span>
               </div>
-              <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1">
+              <div className="p-3 flex flex-col gap-3 overflow-y-auto flex-1 max-h-[600px]">
                 {columns.new.length === 0 ? (
-                  <div className="text-center p-8 text-text-secondary text-sm border border-dashed border-white/10 rounded-lg">
-                    No new alerts to review.
+                  <div className="flex flex-col items-center justify-center p-10 text-center">
+                    <span className="material-symbols-outlined text-4xl text-white/10 mb-2">inbox</span>
+                    <p className="text-text-secondary text-sm">No new alerts</p>
+                    <p className="text-text-secondary/50 text-xs mt-1">All caught up!</p>
                   </div>
                 ) : (
                   columns.new.map(alert => <IncidentCard key={allAlerts.indexOf(alert)} alert={alert} index={allAlerts.indexOf(alert)} />)
@@ -204,21 +259,25 @@ export default function IncidentsViewPage() {
               </div>
             </div>
 
-            {/* Column 2: Investigating */}
-            <div className="flex flex-col bg-surface-dark/50 rounded-xl border border-white/5 overflow-hidden">
-              <div className="p-4 border-b border-primary/20 bg-primary/5 flex items-center justify-between">
-                <h2 className="font-bold flex items-center gap-2 text-primary">
-                  <span className="material-symbols-outlined text-[20px]">troubleshoot</span>
-                  Investigating
-                </h2>
-                <span className="size-6 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">
+            {/* ── Investigating Column ── */}
+            <div className="flex flex-col rounded-2xl border border-white/5 overflow-hidden bg-surface-dark/30">
+              <div className="p-4 border-b border-primary/15 bg-gradient-to-r from-primary/[0.08] to-transparent flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-8 rounded-lg bg-primary/15 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-primary text-[18px]">troubleshoot</span>
+                  </div>
+                  <h2 className="font-bold text-primary text-sm">Investigating</h2>
+                </div>
+                <span className="min-w-[28px] h-7 rounded-full bg-primary/15 text-primary flex items-center justify-center text-xs font-bold px-2">
                   {columns.investigating.length}
                 </span>
               </div>
-              <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1">
+              <div className="p-3 flex flex-col gap-3 overflow-y-auto flex-1 max-h-[600px]">
                 {columns.investigating.length === 0 ? (
-                  <div className="text-center p-8 text-text-secondary text-sm border border-dashed border-white/10 rounded-lg">
-                    No active investigations.
+                  <div className="flex flex-col items-center justify-center p-10 text-center">
+                    <span className="material-symbols-outlined text-4xl text-white/10 mb-2">search_off</span>
+                    <p className="text-text-secondary text-sm">No active investigations</p>
+                    <p className="text-text-secondary/50 text-xs mt-1">Acknowledge alerts to move them here</p>
                   </div>
                 ) : (
                   columns.investigating.map(alert => <IncidentCard key={allAlerts.indexOf(alert)} alert={alert} index={allAlerts.indexOf(alert)} />)
@@ -226,29 +285,35 @@ export default function IncidentsViewPage() {
               </div>
             </div>
 
-            {/* Column 3: Resolved */}
-            <div className="flex flex-col bg-surface-dark/50 rounded-xl border border-white/5 overflow-hidden">
-              <div className="p-4 border-b border-success/20 bg-success/5 flex items-center justify-between">
-                <h2 className="font-bold flex items-center gap-2 text-success">
-                  <span className="material-symbols-outlined text-[20px]">verified_user</span>
-                  Resolved
-                </h2>
-                <span className="size-6 rounded-full bg-success/20 text-success flex items-center justify-center text-xs font-bold">
+            {/* ── Resolved Column ── */}
+            <div className="flex flex-col rounded-2xl border border-white/5 overflow-hidden bg-surface-dark/30">
+              <div className="p-4 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/[0.08] to-transparent flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="size-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-emerald-400 text-[18px]">verified_user</span>
+                  </div>
+                  <h2 className="font-bold text-emerald-400 text-sm">Resolved</h2>
+                </div>
+                <span className="min-w-[28px] h-7 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center text-xs font-bold px-2">
                   {columns.resolved.length}
                 </span>
               </div>
-              <div className="p-4 flex flex-col gap-4 overflow-y-auto flex-1 opacity-75 hover:opacity-100 transition-opacity">
+              <div className="p-3 flex flex-col gap-3 overflow-y-auto flex-1 max-h-[600px] opacity-80 hover:opacity-100 transition-opacity">
                 {columns.resolved.length === 0 ? (
-                  <div className="text-center p-8 text-text-secondary text-sm border border-dashed border-white/10 rounded-lg">
-                    No resolved incidents yet.
+                  <div className="flex flex-col items-center justify-center p-10 text-center">
+                    <span className="material-symbols-outlined text-4xl text-white/10 mb-2">task_alt</span>
+                    <p className="text-text-secondary text-sm">No resolved incidents</p>
+                    <p className="text-text-secondary/50 text-xs mt-1">Resolve investigations to archive them here</p>
                   </div>
                 ) : (
-                  columns.resolved.slice(0, 10).map(alert => <IncidentCard key={allAlerts.indexOf(alert)} alert={alert} index={allAlerts.indexOf(alert)} />)
-                )}
-                {columns.resolved.length > 10 && (
-                  <div className="text-center pt-2 text-text-secondary text-xs">
-                    + {columns.resolved.length - 10} earlier resolved incidents hidden. View Reports for full history.
-                  </div>
+                  <>
+                    {columns.resolved.slice(0, 10).map(alert => <IncidentCard key={allAlerts.indexOf(alert)} alert={alert} index={allAlerts.indexOf(alert)} />)}
+                    {columns.resolved.length > 10 && (
+                      <div className="text-center py-3 text-text-secondary text-xs border-t border-white/5 mt-1">
+                        + {columns.resolved.length - 10} more resolved — <Link to="/reports" className="text-primary hover:text-blue-300 transition-colors">View Reports</Link>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
