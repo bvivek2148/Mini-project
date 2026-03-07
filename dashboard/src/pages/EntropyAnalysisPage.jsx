@@ -37,7 +37,7 @@ export default function EntropyAnalysisPage() {
         <div className="p-6 pb-2">
           <div className="flex flex-col gap-1">
             <Link
-              to="/dashboard"
+              to="/"
               className="text-white text-xl font-bold tracking-tight hover:text-white"
               onClick={() => setSidebarOpen(false)}
               aria-label="Go to Dashboard"
@@ -62,7 +62,7 @@ export default function EntropyAnalysisPage() {
           </a>
           <Link
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group"
-            to="/config/thresholds"
+            to="/settings"
             onClick={() => setSidebarOpen(false)}
           >
             <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">policy</span>

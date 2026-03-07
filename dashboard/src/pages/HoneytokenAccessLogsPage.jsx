@@ -25,7 +25,7 @@ export default function HoneytokenAccessLogsPage() {
             <span className="material-symbols-outlined text-3xl">shield_lock</span>
           </div>
           <Link
-            to="/dashboard"
+            to="/"
             className="text-white text-lg font-bold leading-tight tracking-[-0.015em] hover:text-white"
             aria-label="Go to Dashboard"
           >
@@ -43,7 +43,7 @@ export default function HoneytokenAccessLogsPage() {
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               Go back
             </button>
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/dashboard">
+            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/">
               Dashboard
             </Link>
           </div>

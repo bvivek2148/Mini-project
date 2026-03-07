@@ -25,7 +25,7 @@ export default function ReportsPage() {
           </div>
           <div>
             <Link
-              to="/dashboard"
+              to="/"
               className="text-white text-base font-bold leading-tight hover:text-white"
               onClick={() => setSidebarOpen(false)}
               aria-label="Go to Dashboard"

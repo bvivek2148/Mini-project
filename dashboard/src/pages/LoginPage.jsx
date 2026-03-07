@@ -18,7 +18,7 @@ export default function LoginPage() {
         </div>
         <form className="space-y-5" onSubmit={(e) => {
           e.preventDefault()
-          navigate('/dashboard', { replace: true })
+          navigate('/', { replace: true })
         }}>
           <div className="space-y-1">
             <label className="text-sm font-medium" htmlFor="email">

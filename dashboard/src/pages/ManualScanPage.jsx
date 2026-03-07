@@ -162,7 +162,7 @@ export default function ManualScanPage() {
                 </div>
                 <div className="flex flex-col justify-between h-full p-4 overflow-y-auto">
                     <nav className="flex flex-col gap-2">
-                        <Link to="/dashboard" onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors">
+                        <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors">
                             <span className="material-symbols-outlined fill-1">dashboard</span>
                             <span className="text-sm font-medium leading-normal">Overview</span>
                         </Link>
@@ -179,7 +179,7 @@ export default function ManualScanPage() {
                     <div className="flex flex-col gap-2 border-t border-[#233648] pt-4 mt-auto">
                         <Link
                             className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
-                            to="/config/thresholds"
+                            to="/settings"
                             onClick={() => setSidebarOpen(false)}
                         >
                             <span className="material-symbols-outlined">settings</span>

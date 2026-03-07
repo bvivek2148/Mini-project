@@ -65,7 +65,7 @@ export default function HoneytokenManagementPage() {
 
         {/* Sidebar */}
         <aside className={`w-64 h-full flex-col border-r border-[#2d3b4a] bg-[#0b1219] flex-shrink-0 flex fixed md:static inset-y-0 left-0 z-50 transform transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-          <Link className="p-6 flex items-center gap-3" to="/dashboard" onClick={() => setSidebarOpen(false)} aria-label="Dashboard">
+          <Link className="p-6 flex items-center gap-3" to="/" onClick={() => setSidebarOpen(false)} aria-label="Dashboard">
             <div className="bg-primary/20 p-2 rounded-lg">
               <span className="material-symbols-outlined text-primary text-2xl">shield</span>
             </div>
@@ -75,15 +75,15 @@ export default function HoneytokenManagementPage() {
             </div>
           </Link>
           <nav className="flex-1 px-4 py-4 flex flex-col gap-1 overflow-y-auto">
-            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group" to="/dashboard" onClick={() => setSidebarOpen(false)}>
+            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group" to="/" onClick={() => setSidebarOpen(false)}>
               <span className="material-symbols-outlined text-gray-400 group-hover:text-white">dashboard</span>
               <span className="text-sm font-medium">Dashboard</span>
             </Link>
-            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-white transition-colors" to="/honeytokens/manage" onClick={() => setSidebarOpen(false)}>
+            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-white transition-colors" to="/honeytokens" onClick={() => setSidebarOpen(false)}>
               <span className="material-symbols-outlined text-primary">bug_report</span>
               <span className="text-sm font-medium">Honeytokens</span>
             </Link>
-            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group" to="/honeytokens/logs" onClick={() => setSidebarOpen(false)}>
+            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group" to="/accesslogs" onClick={() => setSidebarOpen(false)}>
               <span className="material-symbols-outlined text-gray-400 group-hover:text-white">description</span>
               <span className="text-sm font-medium">Access Logs</span>
             </Link>
@@ -102,7 +102,7 @@ export default function HoneytokenManagementPage() {
               <button className="text-gray-400 hover:text-primary" type="button" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
                 <span className="material-symbols-outlined">menu</span>
               </button>
-              <Link className="text-lg font-bold text-white" to="/dashboard" onClick={() => setSidebarOpen(false)}>Ransom Trap</Link>
+              <Link className="text-lg font-bold text-white" to="/" onClick={() => setSidebarOpen(false)}>Ransom Trap</Link>
             </div>
             <div className="flex items-center gap-3 ml-auto">
               {!loadingTokens && (
@@ -123,7 +123,7 @@ export default function HoneytokenManagementPage() {
                   <p className="text-gray-400 text-base">Deployed deception files — monitored for unauthorized access.</p>
                 </div>
                 <Link
-                  to="/honeytokens/logs"
+                  to="/accesslogs"
                   className="flex items-center gap-2 bg-primary hover:bg-blue-600 text-white font-medium px-5 py-2.5 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
                 >
                   <span className="material-symbols-outlined">open_in_new</span>
@@ -261,7 +261,7 @@ export default function HoneytokenManagementPage() {
                           </td>
                           <td className="px-6 py-4 text-center">
                             <div className="flex items-center justify-center gap-2">
-                              <Link to="/honeytokens/logs" className="text-gray-400 hover:text-primary transition-colors" title="View Logs">
+                              <Link to="/accesslogs" className="text-gray-400 hover:text-primary transition-colors" title="View Logs">
                                 <span className="material-symbols-outlined">visibility</span>
                               </Link>
                             </div>

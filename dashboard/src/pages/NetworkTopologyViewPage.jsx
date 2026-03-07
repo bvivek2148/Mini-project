@@ -17,7 +17,7 @@ export default function NetworkTopologyViewPage() {
       <header className="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 dark:border-[#233648] bg-surface-light dark:bg-[#16212e] px-6 py-3 shrink-0 z-20">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 text-slate-900 dark:text-white">
-            <Link to="/dashboard" className="size-8 text-primary flex items-center justify-center">
+            <Link to="/" className="size-8 text-primary flex items-center justify-center">
               <svg className="w-full h-full" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                 <path
                   clipRule="evenodd"
@@ -27,13 +27,13 @@ export default function NetworkTopologyViewPage() {
                 />
               </svg>
             </Link>
-            <Link to="/dashboard" className="text-lg font-bold leading-tight tracking-[-0.015em] hover:text-primary transition-colors">
+            <Link to="/" className="text-lg font-bold leading-tight tracking-[-0.015em] hover:text-primary transition-colors">
               Ransom Trap
             </Link>
           </div>
           <nav className="flex items-center gap-9 hidden md:flex">
             <Link
-              to="/dashboard"
+              to="/"
               className="text-slate-600 dark:text-slate-300 text-sm font-medium hover:text-primary transition-colors"
             >
               Dashboard

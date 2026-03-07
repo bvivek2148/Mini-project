@@ -99,15 +99,15 @@ export default function IncidentsPage() {
             <div className="size-8 text-primary">
               <span className="material-symbols-outlined text-4xl">shield_lock</span>
             </div>
-            <Link to="/dashboard" className="text-white text-lg font-bold leading-tight tracking-[-0.015em] hover:text-white">
+            <Link to="/" className="text-white text-lg font-bold leading-tight tracking-[-0.015em] hover:text-white">
               Ransom Trap
             </Link>
           </div>
           <div className="hidden lg:flex items-center gap-9">
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/dashboard">Dashboard</Link>
+            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/">Dashboard</Link>
             <Link className="text-white text-sm font-medium leading-normal" to="/Incidents">Incidents</Link>
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/alerts/list">Alerts</Link>
-            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/analysts">Analysts</Link>
+            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/alerts">Alerts</Link>
+            <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium leading-normal" to="/Incidents/analysts">Analysts</Link>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -170,7 +170,7 @@ export default function IncidentsPage() {
                       <div className="fixed inset-0 z-40" onClick={() => setIncidentsMenuOpen(false)} aria-hidden="true" />
                       <div className="absolute left-0 top-full mt-2 w-52 rounded-lg border border-white/10 bg-surface-dark shadow-2xl z-50 overflow-hidden">
                         <Link
-                          to="/processes/termination-log"
+                          to="/Incidents/terminationlog"
                           className="flex items-center gap-3 px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors"
                           onClick={() => setIncidentsMenuOpen(false)}
                         >

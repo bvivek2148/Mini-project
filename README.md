@@ -635,7 +635,7 @@ cd dashboard
 npm run dev
 ```
 
-The dashboard opens at `http://localhost:5173/dashboard`. The Vite dev server automatically proxies all `/api/*` requests to the FastAPI server at port 8000.
+The dashboard opens at `http://localhost:5173/`. The Vite dev server automatically proxies all `/api/*` requests to the FastAPI server at port 8000.
 
 ### Terminal 3: Detection Agent
 
@@ -672,23 +672,21 @@ All frontend routes are defined in `dashboard/src/App.jsx`. The Vite dev server 
 
 | # | Page | Route | Component | Purpose |
 |---|------|-------|-----------|---------|
-| 1 | **Root Redirect** | `/` | → `/dashboard` | Auto-redirects to the Dashboard Overview |
+| 1 | **Root Redirect** | `/` | → `/` | Auto-redirects to the Dashboard Overview |
 | 2 | **Login** | `/login` | `LoginPage` | Authentication page for SOC analyst access |
-| 3 | **Dashboard Overview** | `/dashboard` | `DashboardOverviewPage` | Real-time stats (Active Threats, Honeytoken Hits, Total Alerts, Agent Status), Threat Detection Velocity chart (24h), Live Threat Feed, notification bell with severity-coded alert cards, multi-host breakdown, agent Start/Stop toggle |
+| 3 | **Dashboard Overview** | `/` | `DashboardOverviewPage` | Real-time stats (Active Threats, Honeytoken Hits, Total Alerts, Agent Status), Threat Detection Velocity chart (24h), Live Threat Feed, notification bell with severity-coded alert cards, multi-host breakdown, agent Start/Stop toggle |
 | 4 | **Manual Scan** | `/scan` | `ManualScanPage` | Drag-and-drop entropy file scanner, ransomware **Simulation Lab** (launch + undo), dynamic monitored directory management (add/remove paths live) |
 | 5 | **Incidents** | `/Incidents` | `IncidentsPage` | Full incident lifecycle management — **Acknowledge**, **Escalate**, **Resolve** — with status badges, analyst assignment, and detailed alert timeline |
 | 6 | **All Alerts** | `/alerts` | `RealTimeAlertsPage` | Live-updating alert table with severity icons, host filtering, timestamp tracking, and direct incident links |
-| 7 | **All Alerts (alias)** | `/alerts/list` | `RealTimeAlertsPage` | Same as `/alerts` — legacy route kept for backward compatibility |
-| 8 | **Real-Time Alerts (redirect)** | `/alerts/real-time` | → `/alerts/list` | Legacy redirect from old URL scheme |
 | 9 | **Alert Detail** | `/alerts/:id` | `IncidentsPage` | View a specific alert by its index — displays full enrichment data (entropy, PID, C&C IPs, containment status) |
 | 10 | **Entropy Analysis** | `/entropy` | `EntropyAnalysisPage` | Entropy distribution charts showing file entropy scores across all monitored directories |
-| 11 | **Honeytoken Access Logs** | `/honeytokens/logs` | `HoneytokenAccessLogsPage` | Detailed audit trail of every honeytoken file interaction (who accessed, when, from which process) |
-| 12 | **Honeytoken Management** | `/honeytokens/manage` | `HoneytokenManagementPage` | Visual grid of all deployed honeytokens with monitoring/triggered status indicators |
+| 11 | **Honeytoken Access Logs** | `/accesslogs` | `HoneytokenAccessLogsPage` | Detailed audit trail of every honeytoken file interaction (who accessed, when, from which process) |
+| 12 | **Honeytoken Management** | `/honeytokens` | `HoneytokenManagementPage` | Visual grid of all deployed honeytokens with monitoring/triggered status indicators |
 | 13 | **User Management** | `/users` | `UserManagementPage` | SOC team user account management |
-| 14 | **Analysts** | `/analysts` | `AnalystsPage` | SOC analyst roster and task assignment dashboard |
-| 15 | **System Settings** | `/config/thresholds` | `ThresholdConfigurationPage` | Live toggles for Auto-Kill, Email, Telegram, WhatsApp notifications + entropy sensitivity presets (Conservative / Balanced / Aggressive) |
+| 14 | **Analysts** | `/Incidents/analysts` | `AnalystsPage` | SOC analyst roster and task assignment dashboard |
+| 15 | **System Settings** | `/settings` | `ThresholdConfigurationPage` | Live toggles for Auto-Kill, Email, Telegram, WhatsApp notifications + entropy sensitivity presets (Conservative / Balanced / Aggressive) |
 | 16 | **Reports** | `/reports` | `ReportsPage` | Generate, filter, and export security reports by date range and alert type |
-| 17 | **Process Termination Log** | `/processes/termination-log` | `ProcessTerminationLogPage` | History table of all processes terminated by the Active Defense system |
+| 17 | **Process Termination Log** | `/Incidents/terminationlog` | `ProcessTerminationLogPage` | History table of all processes terminated by the Active Defense system |
 | 18 | **Network Topology** | `/network` | `NetworkTopologyViewPage` | Visualization of network connections extracted from suspected ransomware processes |
 
 ---

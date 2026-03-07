@@ -126,7 +126,7 @@ export default function DashboardOverviewPage() {
             </div>
             <nav className="flex flex-col gap-2">
               <Link
-                to="/dashboard"
+                to="/"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg bg-primary text-white transition-colors"
                 onClick={() => setSidebarOpen(false)}
               >
@@ -166,7 +166,7 @@ export default function DashboardOverviewPage() {
                 <span className="text-sm font-medium leading-normal">Network Topology View</span>
               </Link>
               <Link
-                to="/honeytokens/manage"
+                to="/honeytokens"
                 className="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
                 onClick={() => setSidebarOpen(false)}
               >
@@ -186,7 +186,7 @@ export default function DashboardOverviewPage() {
           <div className="flex flex-col gap-2 border-t border-[#233648] pt-4">
             <Link
               className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-[#233648] text-[#92adc9] hover:text-white transition-colors"
-              to="/config/thresholds"
+              to="/settings"
               onClick={() => setSidebarOpen(false)}
             >
               <span className="material-symbols-outlined">settings</span>
@@ -218,7 +218,7 @@ export default function DashboardOverviewPage() {
               <span className="material-symbols-outlined">menu</span>
             </button>
             <Link
-              to="/dashboard"
+              to="/"
               onClick={() => setSidebarOpen(false)}
               className="flex items-center gap-3 text-white hover:text-white"
               aria-label="Go to Dashboard"

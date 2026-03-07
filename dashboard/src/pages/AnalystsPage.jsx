@@ -31,15 +31,15 @@ export default function AnalystsPage() {
                         <div className="size-8 text-primary">
                             <span className="material-symbols-outlined text-4xl">shield_lock</span>
                         </div>
-                        <Link to="/dashboard" className="text-white text-lg font-bold leading-tight tracking-[-0.015em] hover:text-white">
+                        <Link to="/" className="text-white text-lg font-bold leading-tight tracking-[-0.015em] hover:text-white">
                             Ransom Trap
                         </Link>
                     </div>
                     <div className="hidden lg:flex items-center gap-9">
-                        <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium" to="/dashboard">Dashboard</Link>
+                        <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium" to="/">Dashboard</Link>
                         <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium" to="/Incidents">Incidents</Link>
-                        <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium" to="/alerts/list">Alerts</Link>
-                        <Link className="text-white text-sm font-medium" to="/analysts">Analysts</Link>
+                        <Link className="text-text-secondary hover:text-white transition-colors text-sm font-medium" to="/alerts">Alerts</Link>
+                        <Link className="text-white text-sm font-medium" to="/Incidents/analysts">Analysts</Link>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -60,7 +60,7 @@ export default function AnalystsPage() {
 
                     {/* Breadcrumb */}
                     <nav className="flex items-center text-sm gap-2">
-                        <Link to="/dashboard" className="text-text-secondary hover:text-white transition-colors">Dashboard</Link>
+                        <Link to="/" className="text-text-secondary hover:text-white transition-colors">Dashboard</Link>
                         <span className="text-text-secondary">/</span>
                         <span className="text-white font-medium">Analysts</span>
                     </nav>

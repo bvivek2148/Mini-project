@@ -67,12 +67,12 @@ export default function ProcessTerminationLogPage() {
             <div className="text-primary size-8 flex items-center justify-center">
               <span className="material-symbols-outlined text-3xl">shield_lock</span>
             </div>
-            <Link to="/dashboard" className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight hover:text-primary transition-colors" aria-label="Dashboard">
+            <Link to="/" className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-tight hover:text-primary transition-colors" aria-label="Dashboard">
               Ransom Trap
             </Link>
           </div>
           <nav className="hidden lg:flex items-center gap-8 flex-1 ml-8">
-            <Link className="text-slate-500 dark:text-slate-400 hover:text-primary text-sm font-medium transition-colors" to="/dashboard">Dashboard</Link>
+            <Link className="text-slate-500 dark:text-slate-400 hover:text-primary text-sm font-medium transition-colors" to="/">Dashboard</Link>
             <Link className="text-slate-500 dark:text-slate-400 hover:text-primary text-sm font-medium transition-colors" to="/Incidents">Incidents</Link>
             <span className="text-primary font-medium text-sm">Logs</span>
           </nav>
@@ -82,7 +82,7 @@ export default function ProcessTerminationLogPage() {
           <div className="flex flex-col w-full max-w-7xl flex-1 gap-6">
             {/* Breadcrumbs */}
             <div className="flex flex-wrap gap-2 items-center text-sm">
-              <Link className="text-slate-500 dark:text-[#92adc9] hover:text-primary font-medium" to="/dashboard">Dashboard</Link>
+              <Link className="text-slate-500 dark:text-[#92adc9] hover:text-primary font-medium" to="/">Dashboard</Link>
               <span className="text-slate-400 dark:text-[#586e84] font-medium">/</span>
               <span className="text-slate-900 dark:text-white font-semibold">Alert Log</span>
             </div>
