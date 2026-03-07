@@ -4,7 +4,7 @@ import LoginPage from './pages/LoginPage.jsx'
 import RealTimeAlertsPage from './pages/RealTimeAlertsPage.jsx'
 import IncidentsPage from './pages/IncidentsPage.jsx'
 import EntropyAnalysisPage from './pages/EntropyAnalysisPage.jsx'
-import ThresholdConfigurationPage from './pages/ThresholdConfigurationPage.jsx'
+import SystemSettingsPage from './pages/SystemSettingsPage.jsx'
 import NetworkTopologyViewPage from './pages/NetworkTopologyViewPage.jsx'
 import ReportsPage from './pages/ReportsPage.jsx'
 import ProcessTerminationLogPage from './pages/ProcessTerminationLogPage.jsx'
@@ -31,7 +31,7 @@ function App() {
         <Route path="/honeytokens" element={<HoneytokenManagementPage />} />
         <Route path="/users" element={<UserManagementPage />} />
         <Route path="/Incidents/analysts" element={<AnalystsPage />} />
-        <Route path="/settings" element={<ThresholdConfigurationPage />} />
+        <Route path="/settings" element={<SystemSettingsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/Incidents/terminationlog" element={<ProcessTerminationLogPage />} />
         <Route path="/network" element={<NetworkTopologyViewPage />} />

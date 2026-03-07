@@ -62,9 +62,9 @@ export const UserManagementPage = () => (
   />
 )
 
-export const ThresholdConfigurationPage = () => (
+export const SystemSettingsPage = () => (
   <SimplePage
-    title="Threshold Configuration"
+    title="System Settings"
     description="Tune entropy thresholds and detection parameters for the Ransom-Trap agent."
   />
 )

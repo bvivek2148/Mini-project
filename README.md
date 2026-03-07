@@ -435,7 +435,7 @@ Mini project/
 │   │       ├── RealTimeAlertsPage.jsx         # Live alert table with host filter + severity icons
 │   │       ├── IncidentsPage.jsx              # Incident lifecycle (Acknowledge → Escalate → Resolve)
 │   │       ├── ManualScanPage.jsx             # Drag & drop scanner + simulation + directory management
-│   │       ├── ThresholdConfigurationPage.jsx # Live toggles + entropy presets + notification switches
+│   │       ├── SystemSettingsPage.jsx         # Live toggles + entropy presets + notification switches
 │   │       ├── HoneytokenManagementPage.jsx   # Honeytoken deployment grid with status indicators
 │   │       ├── HoneytokenAccessLogsPage.jsx   # Honeytoken interaction audit trail
 │   │       ├── ProcessTerminationLogPage.jsx  # History of all terminated processes
@@ -684,7 +684,7 @@ All frontend routes are defined in `dashboard/src/App.jsx`. The Vite dev server 
 | 12 | **Honeytoken Management** | `/honeytokens` | `HoneytokenManagementPage` | Visual grid of all deployed honeytokens with monitoring/triggered status indicators |
 | 13 | **User Management** | `/users` | `UserManagementPage` | SOC team user account management |
 | 14 | **Analysts** | `/Incidents/analysts` | `AnalystsPage` | SOC analyst roster and task assignment dashboard |
-| 15 | **System Settings** | `/settings` | `ThresholdConfigurationPage` | Live toggles for Auto-Kill, Email, Telegram, WhatsApp notifications + entropy sensitivity presets (Conservative / Balanced / Aggressive) |
+| 15 | **System Settings** | `/settings` | `SystemSettingsPage` | Live toggles for Auto-Kill, Email, Telegram, WhatsApp notifications + entropy sensitivity presets (Conservative / Balanced / Aggressive) |
 | 16 | **Reports** | `/reports` | `ReportsPage` | Generate, filter, and export security reports by date range and alert type |
 | 17 | **Process Termination Log** | `/Incidents/terminationlog` | `ProcessTerminationLogPage` | History table of all processes terminated by the Active Defense system |
 | 18 | **Network Topology** | `/network` | `NetworkTopologyViewPage` | Visualization of network connections extracted from suspected ransomware processes |

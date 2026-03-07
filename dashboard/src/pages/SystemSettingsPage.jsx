@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchConfig, patchConfig } from '../api.js'
 
-export default function ThresholdConfigurationPage() {
+export default function SystemSettingsPage() {
   const navigate = useNavigate()
   const [config, setConfig] = useState(null)
 
