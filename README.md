@@ -676,9 +676,9 @@ All frontend routes are defined in `dashboard/src/App.jsx`. The Vite dev server 
 | 2 | **Login** | `/login` | `LoginPage` | Authentication page for SOC analyst access |
 | 3 | **Dashboard Overview** | `/` | `DashboardOverviewPage` | Real-time stats (Active Threats, Honeytoken Hits, Total Alerts, Agent Status), Threat Detection Velocity chart (24h), Live Threat Feed, notification bell with severity-coded alert cards, multi-host breakdown, agent Start/Stop toggle |
 | 4 | **Manual Scan** | `/scan` | `ManualScanPage` | Drag-and-drop entropy file scanner, ransomware **Simulation Lab** (launch + undo), dynamic monitored directory management (add/remove paths live) |
-| 5 | **Incidents** | `/Incidents` | `IncidentsPage` | Full incident lifecycle management — **Acknowledge**, **Escalate**, **Resolve** — with status badges, analyst assignment, and detailed alert timeline |
+| 5 | **Incidents** | `/Incidents` | `IncidentsViewPage` | Full incident lifecycle management — **Acknowledge**, **Escalate**, **Resolve** — with status badges, analyst assignment, and detailed alert timeline |
 | 6 | **All Alerts** | `/alerts` | `RealTimeAlertsPage` | Live-updating alert table with severity icons, host filtering, timestamp tracking, and direct incident links |
-| 9 | **Alert Detail** | `/alerts/:id` | `IncidentsPage` | View a specific alert by its index — displays full enrichment data (entropy, PID, C&C IPs, containment status) |
+| 9 | **Alert Detail** | `/alerts/:id` | `SpecificAlertViewPage` | View a specific alert by its index — displays full enrichment data (entropy, PID, C&C IPs, containment status) |
 | 10 | **Entropy Analysis** | `/entropy` | `EntropyAnalysisPage` | Entropy distribution charts showing file entropy scores across all monitored directories |
 | 11 | **Honeytoken Access Logs** | `/accesslogs` | `HoneytokenAccessLogsPage` | Detailed audit trail of every honeytoken file interaction (who accessed, when, from which process) |
 | 12 | **Honeytoken Management** | `/honeytokens` | `HoneytokenManagementPage` | Visual grid of all deployed honeytokens with monitoring/triggered status indicators |

@@ -34,7 +34,7 @@ function saveRecent(idx) {
   localStorage.setItem(LS_KEY, JSON.stringify([idx, ...prev].slice(0, 10)))
 }
 
-export default function IncidentsPage() {
+export default function SpecificAlertViewPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [alert, setAlert] = useState(null)
