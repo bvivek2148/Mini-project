@@ -273,25 +273,35 @@ export default function RealTimeAlertsPage() {
                           
                           {/* Status Pill */}
                           {alert.status === 'acknowledged' ? (
-                            <span className="px-2.5 py-1 rounded border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-400 uppercase tracking-widest">Acked</span>
+                            <span className="px-2.5 py-1 rounded border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-400 uppercase tracking-widest hidden sm:inline-block">Acked</span>
                           ) : alert.status === 'escalated' ? (
-                            <span className="px-2.5 py-1 rounded border border-orange-500/30 bg-orange-500/10 text-[10px] font-bold text-orange-400 uppercase tracking-widest animate-pulse">Escalated</span>
+                            <span className="px-2.5 py-1 rounded border border-orange-500/30 bg-orange-500/10 text-[10px] font-bold text-orange-400 uppercase tracking-widest animate-pulse hidden sm:inline-block">Escalated</span>
                           ) : alert.status === 'resolved' ? (
-                            <span className="px-2.5 py-1 rounded border border-emerald-500/30 bg-emerald-500/10 text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Resolved</span>
+                            <span className="px-2.5 py-1 rounded border border-emerald-500/30 bg-emerald-500/10 text-[10px] font-bold text-emerald-400 uppercase tracking-widest hidden sm:inline-block">Resolved</span>
                           ) : (
-                            <span className="px-2.5 py-1 rounded border border-white/10 bg-white/5 text-[10px] font-bold text-white/50 uppercase tracking-widest relative">
+                            <span className="px-2.5 py-1 rounded border border-white/10 bg-white/5 text-[10px] font-bold text-white/50 uppercase tracking-widest relative hidden sm:inline-block">
                               <span className="absolute -top-1 -right-1 size-2 rounded-full bg-blue-500 animate-ping" />
                               <span className="absolute -top-1 -right-1 size-2 rounded-full bg-blue-500" />
                               New
                             </span>
                           )}
 
-                          {/* Quick Actions (Hover) */}
-                          <div className={`flex items-center gap-1 transition-all ${isExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0'}`}>
+                          {/* Quick Actions (Always Visible) */}
+                          <div className="flex items-center gap-1.5">
+                            <Link
+                              to={`/alerts/${alert._idx}`}
+                              onClick={e => e.stopPropagation()}
+                              className="px-3 py-1.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs font-bold border border-blue-500/20 transition-colors shadow-sm shadow-blue-500/5 flex items-center gap-1.5"
+                              title="Investigate Alert"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">visibility</span>
+                              <span className="hidden lg:inline">View</span>
+                            </Link>
+
                              {(!alert.status || alert.status === 'new') && (
                               <button
                                 onClick={(e) => handleAck(e, alert._idx)}
-                                className="size-8 flex items-center justify-center rounded bg-white/5 hover:bg-emerald-500/20 text-white/40 hover:text-emerald-400 transition-colors border border-transparent hover:border-emerald-500/30"
+                                className={`size-8 flex items-center justify-center rounded bg-white/5 hover:bg-emerald-500/20 text-white/40 hover:text-emerald-400 transition-colors border border-transparent hover:border-emerald-500/30 ${isExpanded ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 hidden md:flex'}`}
                                 title="Acknowledge"
                               >
                                 <span className="material-symbols-outlined text-[18px]">done_all</span>

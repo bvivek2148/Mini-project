@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { fetchHoneytokens } from '../api.js'
 import { useAlerts } from '../hooks/useAlerts.js'
 
@@ -13,15 +13,13 @@ function formatLastAlert(ts) {
 }
 
 export default function HoneytokenManagementPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const navigate = useNavigate()
   const [tokens, setTokens] = useState([])
   const [loadingTokens, setLoadingTokens] = useState(true)
   const [filterTab, setFilterTab] = useState('All')
   const { alerts } = useAlerts(6000)
 
-  // Refresh token list whenever alerts change (new triggers!)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoadingTokens(true)
     fetchHoneytokens()
       .then(data => { setTokens(data); setLoadingTokens(false) })
@@ -38,252 +36,273 @@ export default function HoneytokenManagementPage() {
   const activeAlerts = tokens.filter(t => t.status === 'TRIGGERED').length
   const honeytokenAlerts = alerts.filter(a => a.alert_type === 'honeytoken_access')
 
-  // Extension icon mapping
   function TokenIcon({ name }) {
     const ext = (name || '').split('.').pop().toLowerCase()
     const map = {
-      xlsx: { icon: 'table_chart', color: 'text-green-500 bg-green-500/10' },
-      xls: { icon: 'table_chart', color: 'text-green-500 bg-green-500/10' },
-      pdf: { icon: 'picture_as_pdf', color: 'text-red-500 bg-red-500/10' },
-      txt: { icon: 'description', color: 'text-slate-400 bg-slate-400/10' },
-      sql: { icon: 'database', color: 'text-blue-500 bg-blue-500/10' },
+      xlsx: { icon: 'table_chart', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+      xls:  { icon: 'table_chart', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+      pdf:  { icon: 'picture_as_pdf', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
+      txt:  { icon: 'description', color: 'text-slate-300 bg-white/5 border-white/10' },
+      sql:  { icon: 'database', color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
+      doc:  { icon: 'description', color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
+      docx: { icon: 'description', color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
     }
-    const { icon, color } = map[ext] || { icon: 'folder_zip', color: 'text-slate-400 bg-slate-400/10' }
+    const { icon, color } = map[ext] || { icon: 'folder_zip', color: 'text-slate-400 bg-white/5 border-white/10' }
     return (
-      <div className={`size-8 rounded ${color} flex items-center justify-center`}>
-        <span className="material-symbols-outlined text-lg">{icon}</span>
+      <div className={`size-10 rounded-xl border flex items-center justify-center shadow-lg ${color}`}>
+        <span className="material-symbols-outlined text-[20px]">{icon}</span>
       </div>
     )
   }
 
+  const css = `
+    .glass { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.8); opacity: 0.5; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+    .ring-anim::before {
+      content: ''; position: absolute; inset: 0; border-radius: 50%;
+      border: 1px solid rgba(239,68,68,0.5); animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+    }
+  `
+
   return (
-    <div className="font-display bg-[#111a22] text-white overflow-hidden">
-      <div className="flex h-screen w-full">
-        {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/60 z-40 md:hidden" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
-        )}
+    <div className="h-screen flex flex-col bg-[#020408] font-display text-white overflow-hidden relative">
+      <style>{css}</style>
 
-        {/* Sidebar */}
-        <aside className={`w-64 h-full flex-col border-r border-[#2d3b4a] bg-[#0b1219] flex-shrink-0 flex fixed md:static inset-y-0 left-0 z-50 transform transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
-          <Link className="p-6 flex items-center gap-3" to="/" onClick={() => setSidebarOpen(false)} aria-label="Dashboard">
-            <div className="bg-primary/20 p-2 rounded-lg">
-              <span className="material-symbols-outlined text-primary text-2xl">shield</span>
+      {/* BACKGROUND EFFECTS */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% -20%, rgba(249,115,22,0.08) 0%, rgba(249,115,22,0.01) 40%, transparent 70%)' }} />
+        <svg className="absolute inset-0 w-full h-full opacity-40">
+          <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse">
+            <circle cx="20" cy="20" r="0.4" fill="rgba(255,255,255,0.08)" />
+          </pattern>
+          <rect fill="url(#dots)" width="100%" height="100%" />
+        </svg>
+      </div>
+
+      {/* HEADER */}
+      <header className="flex-none h-14 px-6 flex items-center justify-between border-b border-white/[0.04] bg-[#060b12]/98 glass z-30 shrink-0">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="size-8 rounded-lg bg-white/[0.02] hover:bg-white/[0.07] border border-white/[0.04] text-white/40 hover:text-white transition-all flex items-center justify-center">
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          </button>
+          <div className="h-6 w-px bg-white/[0.04]" />
+          <div className="flex items-center gap-3">
+            <div className="size-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+              <span className="material-symbols-outlined text-[18px] text-orange-400">key</span>
             </div>
-            <div className="flex flex-col">
-              <span className="text-white text-base font-bold leading-none">Ransom Trap</span>
-              <span className="text-gray-500 text-xs font-medium mt-1">Admin Console</span>
-            </div>
-          </Link>
-          <nav className="flex-1 px-4 py-4 flex flex-col gap-1 overflow-y-auto">
-            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group" to="/" onClick={() => setSidebarOpen(false)}>
-              <span className="material-symbols-outlined text-gray-400 group-hover:text-white">dashboard</span>
-              <span className="text-sm font-medium">Dashboard</span>
-            </Link>
-            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-white transition-colors" to="/honeytokens" onClick={() => setSidebarOpen(false)}>
-              <span className="material-symbols-outlined text-primary">bug_report</span>
-              <span className="text-sm font-medium">Honeytokens</span>
-            </Link>
-            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group" to="/accesslogs" onClick={() => setSidebarOpen(false)}>
-              <span className="material-symbols-outlined text-gray-400 group-hover:text-white">description</span>
-              <span className="text-sm font-medium">Access Logs</span>
-            </Link>
-            <Link className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-[#1c252e] transition-colors group" to="/Incidents" onClick={() => setSidebarOpen(false)}>
-              <span className="material-symbols-outlined text-gray-400 group-hover:text-white">notifications_active</span>
-              <span className="text-sm font-medium">All Alerts</span>
-            </Link>
-          </nav>
-        </aside>
-
-        {/* Main */}
-        <main className="flex-1 flex flex-col h-full relative overflow-hidden bg-[#0b1219]">
-          {/* Header */}
-          <header className="h-16 border-b border-[#2d3b4a] bg-[#111a22] flex items-center justify-between px-6 md:px-10 shrink-0 z-10">
-            <div className="flex items-center md:hidden gap-3">
-              <button className="text-gray-400 hover:text-primary" type="button" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
-                <span className="material-symbols-outlined">menu</span>
-              </button>
-              <Link className="text-lg font-bold text-white" to="/" onClick={() => setSidebarOpen(false)}>Ransom Trap</Link>
-            </div>
-            <div className="flex items-center gap-3 ml-auto">
-              {!loadingTokens && (
-                <span className={`text-xs px-3 py-1 rounded-full font-bold ${activeAlerts > 0 ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-green-500/20 text-green-400'}`}>
-                  {activeAlerts > 0 ? `${activeAlerts} TRIGGERED` : 'All Clear'}
-                </span>
-              )}
-            </div>
-          </header>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10">
-            <div className="max-w-7xl mx-auto flex flex-col gap-8">
-              {/* Heading */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex flex-col gap-1">
-                  <h2 className="text-3xl font-bold tracking-tight text-white">Honeytoken Management</h2>
-                  <p className="text-gray-400 text-base">Deployed deception files — monitored for unauthorized access.</p>
-                </div>
-                <Link
-                  to="/accesslogs"
-                  className="flex items-center gap-2 bg-primary hover:bg-blue-600 text-white font-medium px-5 py-2.5 rounded-lg shadow-lg shadow-primary/20 transition-all active:scale-95"
-                >
-                  <span className="material-symbols-outlined">open_in_new</span>
-                  View Access Logs
-                </Link>
-              </div>
-
-              {/* Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-[#1c252e] p-6 rounded-xl border border-[#2d3b4a] shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-gray-400 font-medium">Total Deployed</span>
-                    <span className="bg-blue-500/10 text-blue-500 p-1.5 rounded-lg material-symbols-outlined">folder_open</span>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-white">{loadingTokens ? '—' : totalDeployed}</span>
-                    <span className="text-sm text-gray-400">files</span>
-                  </div>
-                </div>
-                <div className="bg-[#1c252e] p-6 rounded-xl border border-red-500/20 shadow-sm relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-red-500/5 group-hover:bg-red-500/10 transition-colors" />
-                  <div className="relative z-10">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className={`font-medium ${activeAlerts > 0 ? 'text-red-400' : 'text-gray-400'}`}>Triggered Alerts</span>
-                      <span className={`text-red-500 p-1.5 rounded-lg material-symbols-outlined ${activeAlerts > 0 ? 'animate-pulse' : ''}`}>warning</span>
-                    </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-white">{loadingTokens ? '—' : activeAlerts}</span>
-                      {activeAlerts > 0 && <span className="text-sm text-red-500 font-medium">Critical</span>}
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-[#1c252e] p-6 rounded-xl border border-[#2d3b4a] shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-gray-400 font-medium">Access Events</span>
-                    <span className="bg-green-500/10 text-green-500 p-1.5 rounded-lg material-symbols-outlined">health_and_safety</span>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-white">{honeytokenAlerts.length}</span>
-                    <span className="text-sm text-gray-400">total</span>
-                  </div>
-                  {honeytokenAlerts.length > 0 && (
-                    <div className="w-full bg-gray-700 h-1.5 rounded-full mt-3 overflow-hidden">
-                      <div className="bg-red-500 h-full rounded-full" style={{ width: `${Math.min(honeytokenAlerts.length * 10, 100)}%` }} />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Filters + Table */}
-              <div className="flex flex-col bg-[#1c252e] rounded-xl border border-[#2d3b4a] shadow-sm">
-                {/* Toolbar */}
-                <div className="p-4 border-b border-[#2d3b4a] flex flex-col sm:flex-row gap-4 justify-between items-center">
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <div className="flex gap-1">
-                      {['All', 'Monitoring', 'Triggered'].map(tab => (
-                        <button
-                          key={tab}
-                          onClick={() => setFilterTab(tab)}
-                          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${filterTab === tab ? 'bg-primary/10 text-primary' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-                          type="button"
-                        >
-                          {tab}
-                          {tab === 'Triggered' && activeAlerts > 0 && (
-                            <span className="ml-1.5 text-[10px] bg-red-500/20 text-red-400 px-1 rounded">{activeAlerts}</span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <span className="text-sm text-gray-400 hidden sm:inline">
-                    {displayed.length} of {tokens.length} tokens
-                  </span>
-                </div>
-
-                {/* Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm text-gray-400">
-                    <thead className="text-xs text-gray-400 uppercase bg-[#111a22]/50 border-b border-[#2d3b4a]">
-                      <tr>
-                        <th className="px-6 py-3 font-medium" scope="col">Token File</th>
-                        <th className="px-6 py-3 font-medium" scope="col">Location</th>
-                        <th className="px-6 py-3 font-medium" scope="col">Status</th>
-                        <th className="px-6 py-3 font-medium" scope="col">Last Host</th>
-                        <th className="px-6 py-3 font-medium text-right" scope="col">Last Alert</th>
-                        <th className="px-6 py-3 font-medium text-center" scope="col">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#2d3b4a]">
-                      {loadingTokens && (
-                        <tr><td colSpan={6} className="py-12 text-center">
-                          <div className="flex items-center justify-center gap-2 text-gray-400">
-                            <span className="material-symbols-outlined animate-spin text-primary">sync</span>
-                            Loading honeytokens…
-                          </div>
-                        </td></tr>
-                      )}
-                      {!loadingTokens && displayed.length === 0 && (
-                        <tr><td colSpan={6} className="py-12 text-center text-gray-500">No honeytokens match this filter</td></tr>
-                      )}
-                      {!loadingTokens && displayed.map((token, i) => (
-                        <tr key={i} className={`transition-colors group ${token.status === 'TRIGGERED' ? 'bg-red-900/5 hover:bg-red-900/10' : 'hover:bg-white/5'}`}>
-                          <td className="px-6 py-4 font-medium text-white whitespace-nowrap">
-                            <div className="flex items-center gap-3">
-                              <TokenIcon name={token.name} />
-                              <div className="flex flex-col">
-                                <span>{token.name}</span>
-                                <span className={`text-xs font-normal ${token.status === 'TRIGGERED' ? 'text-red-400' : 'text-gray-500'}`}>
-                                  {token.status === 'TRIGGERED' ? 'Compromised' : 'Monitoring'}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="font-mono text-xs text-gray-400 break-all">{token.path}</span>
-                          </td>
-                          <td className="px-6 py-4">
-                            {token.status === 'TRIGGERED' ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-900/30 text-red-400 border border-red-900/50">
-                                <span className="size-1.5 rounded-full bg-red-500 animate-pulse" />
-                                TRIGGERED
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/30 text-green-400 border border-green-900/50">
-                                <span className="size-1.5 rounded-full bg-green-500" />
-                                Monitoring
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-xs">{token.host || '—'}</td>
-                          <td className="px-6 py-4 text-right font-mono text-xs">
-                            <span className={token.status === 'TRIGGERED' ? 'text-red-400 font-bold' : ''}>
-                              {formatLastAlert(token.last_alert_ts)}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <Link to="/accesslogs" className="text-gray-400 hover:text-primary transition-colors" title="View Logs">
-                                <span className="material-symbols-outlined">visibility</span>
-                              </Link>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-between p-4 border-t border-[#2d3b4a]">
-                  <span className="text-sm text-gray-400">
-                    Showing <span className="font-semibold text-white">{displayed.length}</span> of{' '}
-                    <span className="font-semibold text-white">{tokens.length}</span> honeytokens
-                  </span>
-                </div>
-              </div>
+            <div>
+              <h1 className="text-[13px] font-bold text-white/90 tracking-wide leading-tight">HONEYTOKENS</h1>
+              <p className="text-[10px] text-white/40 font-medium">Deception File Management</p>
             </div>
           </div>
-        </main>
-      </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2">
+            <div className="flex items-center gap-2 text-[10px] bg-white/[0.02] px-3 py-1.5 rounded-lg border border-white/[0.04]">
+              <span className="size-1.5 rounded-full bg-orange-400" />
+              <span className="text-white/30 font-bold">DEPLOYED</span>
+              <span className="text-orange-400 font-black">{totalDeployed}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] bg-white/[0.02] px-3 py-1.5 rounded-lg border border-white/[0.04]">
+              <span className={`size-1.5 rounded-full ${activeAlerts > 0 ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+              <span className="text-white/30 font-bold">COMPROMISED</span>
+              <span className={`font-black ${activeAlerts > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{activeAlerts}</span>
+            </div>
+          </div>
+          <div className="h-6 w-px bg-white/[0.04] hidden md:block mx-1" />
+          <div className="flex gap-1 bg-white/[0.02] p-1 rounded-xl border border-white/[0.04]">
+            {[{ to: '/', i: 'dashboard' }, { to: '/alerts', i: 'notifications_active' }, { to: '/Incidents', i: 'security' }, { to: '/network', i: 'hub' }].map(l => (
+              <Link key={l.to} to={l.to} className="size-8 rounded-lg flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.08] transition-all">
+                <span className="material-symbols-outlined text-[18px]">{l.i}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* CONTENT */}
+      <main className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="max-w-7xl mx-auto space-y-6">
+
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Total Deployed */}
+            <div className="bg-gradient-to-br from-[#0c1420] to-[#08101a] p-6 rounded-2xl border border-white/[0.05] shadow-xl relative overflow-hidden group">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-orange-500/[0.02] rounded-full blur-3xl group-hover:bg-orange-500/[0.04] transition-colors" />
+              <div className="flex justify-between items-start mb-4 relative z-10">
+                <div>
+                  <p className="text-[11px] font-black text-white/30 tracking-widest mb-2">TOTAL DEPLOYED</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[52px] font-black text-white leading-none">{loadingTokens ? '—' : totalDeployed}</span>
+                    <span className="text-[12px] text-white/30 font-medium">files active</span>
+                  </div>
+                </div>
+                <div className="size-12 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center shadow-[0_0_15px_rgba(249,115,22,0.15)] overflow-hidden relative">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-orange-500/0 to-orange-500/10" />
+                  <span className="material-symbols-outlined text-[24px] text-orange-400">deployed_code</span>
+                </div>
+              </div>
+              <p className="text-[12px] text-white/40 mt-2">Scattered across infrastructure endpoints</p>
+            </div>
+
+            {/* Triggered */}
+            <div className={`bg-gradient-to-br from-[#0c1420] to-[#08101a] p-6 rounded-2xl border shadow-xl relative overflow-hidden group transition-all duration-300 ${activeAlerts > 0 ? 'border-red-500/30' : 'border-white/[0.05]'}`}>
+              <div className={`absolute right-0 top-0 w-32 h-32 rounded-full blur-3xl transition-colors ${activeAlerts > 0 ? 'bg-red-500/10 group-hover:bg-red-500/20' : 'bg-emerald-500/[0.02]'}`} />
+              <div className="flex justify-between items-start mb-4 relative z-10">
+                <div>
+                  <p className="text-[11px] font-black tracking-widest mb-2 text-white/30">COMPROMISED</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-[52px] font-black leading-none ${activeAlerts > 0 ? 'text-red-400 drop-shadow-[0_0_10px_rgba(239,68,68,0.3)]' : 'text-white'}`}>{loadingTokens ? '—' : activeAlerts}</span>
+                    <span className="text-[12px] text-white/30 font-medium">tokens triggered</span>
+                  </div>
+                </div>
+                <div className={`size-12 rounded-2xl border flex items-center justify-center shadow-lg overflow-hidden relative ${activeAlerts > 0 ? 'bg-red-500/10 border-red-500/30 text-red-400 ring-anim' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'}`}>
+                  <div className={`absolute inset-0 bg-gradient-to-tr ${activeAlerts > 0 ? 'from-red-500/0 to-red-500/10' : 'from-emerald-500/0 to-emerald-500/10'}`} />
+                  <span className="material-symbols-outlined text-[24px] z-10">{activeAlerts > 0 ? 'warning' : 'gpp_good'}</span>
+                </div>
+              </div>
+              <p className={`text-[12px] mt-2 ${activeAlerts > 0 ? 'text-red-300' : 'text-white/40'}`}>{activeAlerts > 0 ? 'Immediate investigation required' : 'No decoy files have been accessed'}</p>
+            </div>
+
+            {/* Access Events */}
+            <div className="bg-gradient-to-br from-[#0c1420] to-[#08101a] p-6 rounded-2xl border border-white/[0.05] shadow-xl flex flex-col justify-between">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-[11px] font-black tracking-widest mb-2 text-white/30">ACCESS LOGS</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[52px] font-black text-white leading-none drop-shadow-md">{honeytokenAlerts.length}</span>
+                    <span className="text-[12px] text-white/30 font-medium">total events</span>
+                  </div>
+                </div>
+                <div className="size-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.15)] relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-500/0 to-blue-500/10" />
+                  <span className="material-symbols-outlined text-[24px] text-blue-400">format_list_bulleted</span>
+                </div>
+              </div>
+              <Link to="/accesslogs" className="w-full py-3 rounded-xl bg-white/[0.02] hover:bg-blue-500/10 border border-white/[0.05] hover:border-blue-500/20 text-[12px] font-bold text-white/70 hover:text-blue-400 transition-all flex items-center justify-center gap-2 group">
+                View Full Audit Log <span className="material-symbols-outlined text-[16px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Tokens List Section */}
+          <div className="bg-[#060b12]/80 border border-white/[0.05] rounded-2xl shadow-2xl overflow-hidden glass">
+            {/* Toolbar */}
+            <div className="p-4 border-b border-white/[0.05] flex flex-col sm:flex-row gap-4 justify-between items-center bg-white/[0.01]">
+              <div className="flex gap-2">
+                {[
+                  { id: 'All', label: 'All Tokens', count: tokens.length },
+                  { id: 'Monitoring', label: 'Secure', count: tokens.filter(t => t.status === 'monitoring').length, dot: 'bg-emerald-500' },
+                  { id: 'Triggered', label: 'Compromised', count: activeAlerts, dot: 'bg-red-500 animate-pulse' }
+                ].map(tab => (
+                  <button key={tab.id} onClick={() => setFilterTab(tab.id)}
+                    className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-[12px] font-bold transition-all ${filterTab === tab.id ? 'bg-white/[0.08] text-white border border-white/[0.1] shadow-lg' : 'text-white/40 hover:text-white/80 hover:bg-white/[0.03] border border-transparent'}`}>
+                    {tab.dot && <span className={`size-2 rounded-full ${tab.dot}`} />}
+                    {tab.label}
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] ${filterTab === tab.id ? 'bg-white/10 text-white/90' : 'bg-white/[0.03] text-white/50'}`}>{tab.count}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 pr-3 bg-white/[0.02] border border-white/[0.05] focus-within:border-white/20 transition-colors rounded-xl px-3 py-2">
+                <span className="material-symbols-outlined text-[18px] text-white/30">search</span>
+                <input type="text" placeholder="Search tokens..." className="bg-transparent border-none text-[13px] text-white placeholder-white/20 focus:outline-none focus:ring-0 w-48" />
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-white/[0.02] border-b border-white/[0.05] text-[11px] font-black text-white/40 uppercase tracking-widest">
+                    <th className="px-6 py-5">Token File</th>
+                    <th className="px-6 py-5">Status</th>
+                    <th className="px-6 py-5">Location</th>
+                    <th className="px-6 py-5">Assigned Host</th>
+                    <th className="px-6 py-5 text-right">Last Interaction</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.02]">
+                  {loadingTokens ? (
+                    <tr>
+                      <td colSpan={5} className="py-16 text-center">
+                        <div className="inline-flex flex-col items-center gap-3">
+                          <div className="size-8 rounded-full border-2 border-orange-500/20 border-t-orange-500 animate-spin" />
+                          <p className="text-[11px] text-white/30 font-bold tracking-widest">LOADING TOKENS...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : displayed.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-16 text-center text-white/20 text-[12px]">
+                        No honeytokens match the selected filter.
+                      </td>
+                    </tr>
+                  ) : displayed.map((token, i) => {
+                    const isTriggered = token.status === 'TRIGGERED'
+                    return (
+                      <tr key={i} className={`group hover:bg-white/[0.02] transition-colors ${isTriggered ? 'bg-red-500/[0.02]' : ''}`}>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="flex items-center gap-4">
+                            <TokenIcon name={token.name} />
+                            <div>
+                              <p className={`text-[14px] font-bold ${isTriggered ? 'text-red-300' : 'text-white/90'}`}>{token.name}</p>
+                              <p className="text-[11px] text-white/30 mt-0.5 font-mono">ID: {token.id ? token.id.substring(0,8) : '...'}...</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          {isTriggered ? (
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[11px] font-bold shadow-[0_0_10px_rgba(239,68,68,0.1)]">
+                              <span className="size-2 rounded-full bg-red-500 animate-pulse" />
+                              COMPROMISED
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-400/80 text-[11px] font-bold">
+                              <span className="size-2 rounded-full bg-emerald-500/50" />
+                              SECURE
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-5">
+                          <div className="flex items-center gap-2 text-[12px] text-white/40 font-mono bg-white/[0.02] px-2.5 py-1.5 rounded border border-white/[0.02] w-fit max-w-[300px] truncate" title={token.path}>
+                            <span className="material-symbols-outlined text-[15px] text-white/20 shrink-0">folder_open</span>
+                            <span className="truncate">{token.path}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap">
+                          <div className="flex items-center gap-2.5">
+                            <span className="material-symbols-outlined text-[16px] text-white/20">desktop_windows</span>
+                            <span className="text-[13px] text-white/70 font-semibold">{token.host || 'Unknown Endpoint'}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-5 whitespace-nowrap text-right">
+                          <span className={`text-[12px] font-mono ${isTriggered ? 'text-red-400 font-bold' : 'text-white/30'}`}>
+                            {formatLastAlert(token.last_alert_ts)}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            
+            <div className="p-5 border-t border-white/[0.05] bg-white/[0.01] flex justify-between items-center text-[11px] text-white/40 font-black tracking-widest">
+              <span>SHOWING {displayed.length} OF {tokens.length} TOKENS</span>
+              {activeAlerts > 0 && <span className="text-red-400/80 flex items-center gap-1.5 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20"><span className="material-symbols-outlined text-[14px] animate-pulse">warning</span> INVESTIGATION REQUIRED</span>}
+            </div>
+          </div>
+
+        </div>
+      </main>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import DashboardOverviewPage from './pages/DashboardOverviewPage.jsx'
 import LoginPage from './pages/LoginPage.jsx'
+import SignupPage from './pages/SignupPage.jsx'
 import RealTimeAlertsPage from './pages/RealTimeAlertsPage.jsx'
 import IncidentsViewPage from './pages/IncidentsViewPage.jsx'
 import SpecificAlertViewPage from './pages/SpecificAlertViewPage.jsx'
@@ -20,6 +21,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<DashboardOverviewPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
         <Route path="/scan" element={<ManualScanPage />} />
         {/* /Incidents = Main Incident Dashboard */}
         <Route path="/Incidents" element={<IncidentsViewPage />} />

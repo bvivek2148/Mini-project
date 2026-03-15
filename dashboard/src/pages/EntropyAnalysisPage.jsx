@@ -1,502 +1,507 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState, useMemo } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAlerts } from '../hooks/useAlerts.js'
 
 function formatSpikeTime(ts) {
   if (!ts) return '—'
   return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
+function timeAgo(ts) {
+  if (!ts) return ''
+  const diff = Math.floor(Date.now() / 1000 - ts)
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
 
 export default function EntropyAnalysisPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const navigate = useNavigate()
   const { alerts, loading } = useAlerts(6000)
+  const [timeRange, setTimeRange] = useState('1H')
+  const [search, setSearch] = useState('')
 
   const ransomwareAlerts = alerts.filter(a => a.alert_type === 'ransomware_suspected')
+  const honeytokenAlerts = alerts.filter(a => a.alert_type === 'honeytoken_access')
   const latestRansomware = ransomwareAlerts.length > 0
     ? ransomwareAlerts[ransomwareAlerts.length - 1]
     : null
   const currentEntropy = latestRansomware?.details?.entropy_threshold ?? '—'
   const spikeTime = formatSpikeTime(latestRansomware?.timestamp)
   const filesAffected = ransomwareAlerts.length
+  const hostName = latestRansomware?.host || 'No active host'
+
+  // Build dynamic SVG chart path from alerts based on timestamps
+  const chartData = useMemo(() => {
+    if (alerts.length === 0) return { linePath: '', areaPath: '', dots: [] }
+    const sorted = [...alerts].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+    const minTs = sorted[0]?.timestamp || 0
+    const maxTs = sorted[sorted.length - 1]?.timestamp || minTs + 3600
+    const range = Math.max(maxTs - minTs, 60)
+    
+    const points = sorted.map(a => {
+      const x = ((a.timestamp - minTs) / range) * 1000
+      const entropy = a.alert_type === 'ransomware_suspected' 
+        ? (a.details?.entropy_threshold || 7.8)
+        : (2 + Math.random() * 3)
+      const y = 300 - (entropy / 8) * 300
+      return { x: Math.round(x), y: Math.round(y), entropy, isRansomware: a.alert_type === 'ransomware_suspected' }
+    })
+    
+    if (points.length === 0) return { linePath: '', areaPath: '', dots: [] }
+    
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x} ${p.y}`).join(' ')
+    const areaPath = linePath + ` L${points[points.length - 1].x} 300 L${points[0].x} 300 Z`
+    const dots = points.filter(p => p.isRansomware)
+    
+    return { linePath, areaPath, dots }
+  }, [alerts])
+
+  // X-axis labels based on real timestamps
+  const xLabels = useMemo(() => {
+    if (alerts.length === 0) return ['—','—','—','—','—']
+    const sorted = [...alerts].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+    const minTs = sorted[0]?.timestamp || 0
+    const maxTs = sorted[sorted.length - 1]?.timestamp || minTs + 3600
+    const labels = []
+    for (let i = 0; i < 5; i++) {
+      const ts = minTs + ((maxTs - minTs) / 4) * i
+      labels.push(formatSpikeTime(ts))
+    }
+    return labels
+  }, [alerts])
+
+  // All events for table (both types), sorted newest first, with search
+  const allEvents = useMemo(() => {
+    const combined = [...alerts].reverse().map((a, i) => ({
+      ...a,
+      _idx: alerts.length - 1 - i,
+      entropy: a.alert_type === 'ransomware_suspected' ? (a.details?.entropy_threshold || 8.0) : (2 + (i % 4)),
+      isRansomware: a.alert_type === 'ransomware_suspected',
+    }))
+    if (!search) return combined
+    const q = search.toLowerCase()
+    return combined.filter(a =>
+      [a.host, a.path, a.process_name, a.alert_type].some(v => (v || '').toLowerCase().includes(q))
+    )
+  }, [alerts, search])
+
+  const displayEvents = allEvents.slice(0, 12)
 
   return (
-    <div className="font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-white overflow-hidden flex h-screen w-full">
-      {sidebarOpen ? (
-        <div
-          className="fixed inset-0 bg-black/60 z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      ) : null}
+    <div className="min-h-screen bg-[#06080c] font-display text-white selection:bg-indigo-500/30">
+      
+      {/* Dynamic Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] right-[10%] w-[600px] h-[600px] bg-indigo-500/[0.04] rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '8s' }} />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[800px] h-[800px] bg-cyan-500/[0.02] rounded-full blur-[100px]" />
+        <div className="absolute top-[50%] right-[-5%] w-[400px] h-[400px] bg-red-500/[0.02] rounded-full blur-[100px]" />
+      </div>
 
-      {/* Side Navigation */}
-      <aside
-        className={`w-64 h-full flex flex-col bg-[#111a22] border-r border-[#233648] shrink-0 z-50 fixed md:static inset-y-0 left-0 transform transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-          }`}
-      >
-        <div className="p-6 pb-2">
-          <div className="flex flex-col gap-1">
-            <Link
-              to="/"
-              className="text-white text-xl font-bold tracking-tight hover:text-white"
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Go to Dashboard"
-            >
-              Ransom Trap
-            </Link>
-            <p className="text-[#92adc9] text-xs font-medium uppercase tracking-wider">Admin Console</p>
-          </div>
-        </div>
-        <nav className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
-            <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">dashboard</span>
-            <span className="text-sm font-medium">Dashboard</span>
-          </a>
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary transition-colors" href="#">
-            <span className="material-symbols-outlined text-2xl fill-1">ssid_chart</span>
-            <span className="text-sm font-medium">Entropy Analysis</span>
-          </a>
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
-            <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">folder_open</span>
-            <span className="text-sm font-medium">File Monitor</span>
-          </a>
-          <Link
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group"
-            to="/settings"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">policy</span>
-            <span className="text-sm font-medium">Entropy Thresholds</span>
-          </Link>
-          <a className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#92adc9] hover:bg-[#233648] hover:text-white transition-colors group" href="#">
-            <span className="material-symbols-outlined text-2xl group-hover:text-white transition-colors">settings</span>
-            <span className="text-sm font-medium">Settings</span>
-          </a>
-        </nav>
-        <div className="p-4 border-t border-[#233648]">
-          <div className="flex items-center gap-3 px-3 py-2">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white">
-              JD
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium text-white">John Doe</span>
-              <span className="text-xs text-[#92adc9]">Lead Analyst</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-        {/* Top Navigation */}
-        <header className="h-16 flex items-center justify-between px-8 border-b border-[#233648] bg-[#111a22] shrink-0">
+      <div className="relative z-10 flex flex-col h-screen">
+        {/* HEADER */}
+        <header className="flex-none px-6 py-4 flex items-center justify-between border-b border-white/[0.05] bg-[#0a0e14]/80 backdrop-blur-xl">
           <div className="flex items-center gap-4">
-            <button
-              className="md:hidden text-[#92adc9] hover:text-white"
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open sidebar"
+            <button 
+              onClick={() => navigate(-1)} 
+              className="flex items-center justify-center size-10 rounded-xl bg-white/[0.02] hover:bg-white/[0.08] border border-white/[0.05] hover:border-white/[0.1] text-white/50 hover:text-white transition-all group shadow-sm shadow-black"
             >
-              <span className="material-symbols-outlined">menu</span>
+              <span className="material-symbols-outlined text-lg group-hover:-translate-x-0.5 transition-transform">arrow_back</span>
             </button>
-            <span className="material-symbols-outlined text-primary text-3xl">security</span>
-            <h2 className="text-white text-lg font-bold tracking-tight">Ransomware Detection Suite</h2>
-          </div>
-          <div className="flex items-center gap-6">
-            {/* Search */}
-            <div className="relative w-64">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="material-symbols-outlined text-[#92adc9] text-[20px]">search</span>
+            <div className="h-8 w-px bg-white/[0.05]" />
+            <div>
+              <div className="flex items-center gap-3">
+                <div className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-60" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-indigo-500" />
+                </div>
+                <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent">Entropy Analysis</h1>
               </div>
-              <input
-                className="block w-full rounded-lg border-none bg-[#233648] py-2 pl-10 pr-3 text-sm text-white placeholder-[#92adc9] focus:ring-2 focus:ring-primary"
-                placeholder="Search hosts, files, or hashes..."
-                type="text"
-              />
+              <p className="text-[11px] text-white/40 mt-0.5 ml-6 font-medium tracking-wide uppercase">File Encryption Monitoring</p>
             </div>
-            {/* User/Profile Actions */}
-            <button className="text-[#92adc9] hover:text-white relative">
-              <span className="material-symbols-outlined">help</span>
-            </button>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex gap-2 bg-[#0a0e14] p-1 rounded-xl border border-white/[0.05] shadow-inner shadow-black/50">
+               {[
+                { to: '/', icon: 'dashboard', label: 'Dashboard' },
+                { to: '/alerts', icon: 'notifications_active', label: 'Alerts' },
+                { to: '/Incidents', icon: 'security', label: 'Incidents' },
+                { to: '/settings', icon: 'tune', label: 'Thresholds' }
+              ].map((link) => (
+                <Link 
+                  key={link.to} 
+                  to={link.to} 
+                  className="flex items-center gap-2 py-1.5 px-3 rounded-lg text-white/40 hover:text-white hover:bg-white/[0.06] hover:shadow-sm transition-all text-xs font-semibold"
+                >
+                  <span className="material-symbols-outlined text-[16px]">{link.icon}</span>
+                  <span className="hidden sm:inline">{link.label}</span>
+                </Link>
+              ))}
+            </div>
           </div>
         </header>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto bg-background-dark p-8">
-          <div className="max-w-7xl mx-auto flex flex-col gap-6">
-            {/* Page Heading & Actions */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div className="flex flex-col gap-1">
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 relative">
+          <div className="max-w-[1400px] mx-auto flex flex-col gap-6">
+            
+            {/* Page Title Row & Actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex flex-col gap-1.5">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-black tracking-tight text-white">Entropy Analysis</h1>
-                  <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30 uppercase tracking-wider">
-                    Monitoring Active
-                  </span>
+                  <h2 className="text-3xl font-black tracking-tight text-white/90">System Entropy</h2>
+                  {ransomwareAlerts.length > 0 ? (
+                    <span className="px-2.5 py-1 rounded-lg bg-red-500/10 text-[10px] font-bold text-red-400 border border-red-500/20 uppercase tracking-widest flex items-center gap-1.5 animate-pulse">
+                      <span className="size-1.5 rounded-full bg-red-400" />
+                      Threat Active
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-[10px] font-bold text-emerald-400 border border-emerald-500/20 uppercase tracking-widest flex items-center gap-1.5">
+                      <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      All Clear
+                    </span>
+                  )}
                 </div>
-                <p className="text-[#92adc9] text-base">
-                  Host: <span className="text-white font-mono">SRV-FIN-01</span> • IP: 192.168.1.42
+                <p className="text-white/40 font-mono text-sm pl-0.5">
+                  Host: <span className="text-white/70">{hostName}</span> <span className="mx-2 text-white/20">|</span> Polling every <span className="text-white/70">6s</span>
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <button className="flex items-center gap-2 px-4 py-2 bg-[#233648] hover:bg-[#2c445a] text-white text-sm font-medium rounded-lg transition-colors border border-[#334155]">
-                  <span className="material-symbols-outlined text-[18px]">table_chart</span>
-                  View Logs
-                </button>
-                <button className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-blue-600 text-white text-sm font-bold rounded-lg transition-colors shadow-[0_0_15px_rgba(19,127,236,0.3)]">
+
+              <div className="flex gap-3">
+                 <div className="relative w-[260px]">
+                    <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-white/20 text-[18px]">search</span>
+                    <input
+                      className="block w-full h-10 rounded-xl border border-white/[0.05] bg-[#0a0e14] pl-11 pr-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500/50 shadow-inner shadow-black/50 transition-all placeholder:text-white/20"
+                      placeholder="Filter events..."
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                    />
+                 </div>
+                 <Link to="/alerts" className="flex items-center gap-2 px-4 py-2 bg-white/[0.03] hover:bg-white/[0.06] text-white/60 hover:text-white text-sm font-bold rounded-xl transition-all border border-white/[0.05] hover:border-white/[0.1]">
+                  <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                  View Alerts
+                </Link>
+                 <button className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-indigo-500/20">
                   <span className="material-symbols-outlined text-[18px]">download</span>
-                  Export Report
+                  Export
                 </button>
               </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-[#1e293b] border border-red-500/50 rounded-xl p-5 relative overflow-hidden group">
-                <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <span className="material-symbols-outlined text-6xl text-red-500">warning</span>
+            {/* Stats Cards — 4 cards now */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Peak Entropy */}
+              <div className="bg-[#0b1018]/80 backdrop-blur rounded-2xl p-5 border border-white/[0.05] shadow-2xl shadow-black/40 relative overflow-hidden group hover:border-white/[0.08] transition-all">
+                {(!loading && ransomwareAlerts.length > 0) && (
+                   <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-red-500/0 via-red-500 to-red-500/0 opacity-60" />
+                )}
+                <div className="absolute right-0 top-0 p-4 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity">
+                  <span className="material-symbols-outlined text-[64px] text-red-500">warning</span>
                 </div>
-                <p className="text-[#92adc9] text-sm font-medium mb-1">Entropy Threshold</p>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[14px]">speed</span>
+                  Peak Entropy
+                </p>
                 <div className="flex items-baseline gap-2">
                   {loading ? (
-                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                    <div className="h-10 w-16 bg-white/5 rounded animate-pulse" />
                   ) : (
-                    <p className="text-white text-3xl font-bold">{currentEntropy}</p>
+                    <p className={`text-4xl font-black tracking-tighter ${currentEntropy > 7.5 ? 'text-red-400' : 'text-white'}`}>{currentEntropy}</p>
                   )}
-                  {!loading && ransomwareAlerts.length > 0 && (
-                    <span className="text-red-400 text-sm font-bold bg-red-500/10 px-2 py-0.5 rounded">TRIGGERED</span>
+                  {!loading && currentEntropy > 7.5 && (
+                    <span className="px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] font-bold uppercase tracking-wider animate-pulse">Critical</span>
                   )}
                 </div>
-                <p className="text-[#92adc9] text-sm mt-2">
-                  {ransomwareAlerts.length > 0 ? `${ransomwareAlerts.length} detection event(s)` : 'No detections yet'}
-                </p>
+                <div className="mt-3 pt-3 border-t border-white/[0.04] text-[10px] text-white/30">
+                  Threshold: <span className="text-white/50">7.5</span>
+                </div>
               </div>
-              <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 relative overflow-hidden">
-                <div className="absolute right-0 top-0 p-4 opacity-10">
-                  <span className="material-symbols-outlined text-6xl text-white">timer</span>
+
+              {/* Latest Detection */}
+              <div className="bg-[#0b1018]/80 backdrop-blur rounded-2xl p-5 border border-white/[0.05] shadow-2xl shadow-black/40 relative overflow-hidden group hover:border-white/[0.08] transition-all">
+                <div className="absolute right-0 top-0 p-4 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity">
+                  <span className="material-symbols-outlined text-[64px] text-indigo-500">timeline</span>
                 </div>
-                <p className="text-[#92adc9] text-sm font-medium mb-1">Last Spike Detected</p>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[14px]">schedule</span>
+                  Last Spike
+                </p>
                 <div className="flex items-baseline gap-2">
                   {loading ? (
-                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                    <div className="h-10 w-24 bg-white/5 rounded animate-pulse" />
                   ) : (
-                    <p className="text-white text-3xl font-bold">{spikeTime}</p>
+                    <p className="text-3xl font-black tracking-tighter text-white/90">{spikeTime}</p>
                   )}
                 </div>
-                <p className="text-[#92adc9] text-sm mt-2">
-                  {latestRansomware ? 'From: ' + (latestRansomware.host || 'unknown host') : 'No spikes recorded'}
-                </p>
+                <div className="mt-3 pt-3 border-t border-white/[0.04] text-[10px] text-white/30">
+                  {latestRansomware ? (<span>Source: <span className="text-white/50 font-mono">{latestRansomware.host}</span></span>) : 'No spikes yet'}
+                </div>
               </div>
-              <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-5 relative overflow-hidden">
-                <div className="absolute right-0 top-0 p-4 opacity-10">
-                  <span className="material-symbols-outlined text-6xl text-white">folder_zip</span>
+
+              {/* Ransomware Events */}
+              <div className="bg-[#0b1018]/80 backdrop-blur rounded-2xl p-5 border border-white/[0.05] shadow-2xl shadow-black/40 relative overflow-hidden group hover:border-white/[0.08] transition-all">
+                <div className="absolute right-0 top-0 p-4 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity">
+                  <span className="material-symbols-outlined text-[64px] text-orange-500">gpp_bad</span>
                 </div>
-                <p className="text-[#92adc9] text-sm font-medium mb-1">Detection Events</p>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[14px]">gpp_bad</span>
+                  Ransomware Events
+                </p>
                 <div className="flex items-baseline gap-2">
                   {loading ? (
-                    <p className="text-[#92adc9] text-2xl font-bold">—</p>
+                    <div className="h-10 w-12 bg-white/5 rounded animate-pulse" />
                   ) : (
-                    <p className="text-white text-3xl font-bold">{filesAffected}</p>
+                    <p className={`text-4xl font-black tracking-tighter ${filesAffected > 0 ? 'text-orange-400' : 'text-white'}`}>{filesAffected}</p>
                   )}
                 </div>
-                <p className="text-orange-400 text-sm mt-2 flex items-center gap-1">
-                  {filesAffected > 0 ? (
-                    <><span className="material-symbols-outlined text-sm">priority_high</span> Requires Review</>
-                  ) : (
-                    <span className="text-green-400">System clean</span>
-                  )}
+                <div className="mt-3 pt-3 border-t border-white/[0.04] text-[10px]">
+                   {filesAffected > 0 ? (
+                      <span className="text-orange-400 font-bold flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">error</span> Requires review</span>
+                   ) : (
+                      <span className="text-emerald-400 font-bold flex items-center gap-1"><span className="material-symbols-outlined text-[12px]">check_circle</span> Clean</span>
+                   )}
+                </div>
+              </div>
+
+              {/* Total Monitored */}
+              <div className="bg-[#0b1018]/80 backdrop-blur rounded-2xl p-5 border border-white/[0.05] shadow-2xl shadow-black/40 relative overflow-hidden group hover:border-white/[0.08] transition-all">
+                <div className="absolute right-0 top-0 p-4 opacity-[0.04] group-hover:opacity-[0.08] transition-opacity">
+                  <span className="material-symbols-outlined text-[64px] text-cyan-500">monitoring</span>
+                </div>
+                <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[14px]">monitoring</span>
+                  Total Events
                 </p>
+                <div className="flex items-baseline gap-2">
+                  {loading ? (
+                    <div className="h-10 w-12 bg-white/5 rounded animate-pulse" />
+                  ) : (
+                    <p className="text-4xl font-black tracking-tighter text-cyan-400">{alerts.length}</p>
+                  )}
+                </div>
+                <div className="mt-3 pt-3 border-t border-white/[0.04] text-[10px] text-white/30">
+                  Honeytoken: <span className="text-white/50">{honeytokenAlerts.length}</span> <span className="mx-1.5 text-white/10">•</span> Ransomware: <span className="text-white/50">{ransomwareAlerts.length}</span>
+                </div>
               </div>
             </div>
 
-            {/* Main Chart Section */}
-            <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-6 flex flex-col gap-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Chart Area */}
+            <div className="bg-[#0b1018]/80 backdrop-blur rounded-2xl border border-white/[0.05] shadow-2xl shadow-black/50 p-6 flex flex-col gap-5 relative hover:border-white/[0.08] transition-all">
+               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h3 className="text-white text-lg font-bold">Entropy Timeline</h3>
-                  <p className="text-[#92adc9] text-sm">
-                    Shannon Entropy values over time. High values (7.5+) indicate potential encryption.
+                  <h3 className="text-lg font-bold text-white/90 flex items-center gap-2">
+                    Entropy Timeline
+                    <span className="text-[10px] text-white/30 font-medium uppercase tracking-widest bg-white/[0.03] px-2 py-1 rounded border border-white/[0.05]">{alerts.length} data points</span>
+                  </h3>
+                  <p className="text-sm text-white/40 mt-1">
+                    Shannon entropy score mapping — spikes above <span className="text-red-400 font-bold">7.5</span> indicate potential encryption.
                   </p>
                 </div>
-                {/* Time Filters */}
-                <div className="flex bg-[#111a22] p-1 rounded-lg border border-[#334155] self-start sm:self-auto">
-                  <button className="px-3 py-1.5 rounded-md text-sm font-medium text-white bg-primary shadow-sm">1h</button>
-                  <button className="px-3 py-1.5 rounded-md text-sm font-medium text-[#92adc9] hover:text-white transition-colors">
-                    24h
-                  </button>
-                  <button className="px-3 py-1.5 rounded-md text-sm font-medium text-[#92adc9] hover:text-white transition-colors">
-                    7d
-                  </button>
-                  <button className="px-3 py-1.5 rounded-md text-sm font-medium text-[#92adc9] hover:text-white transition-colors">
-                    Custom
-                  </button>
+                
+                {/* Time Range Selector */}
+                <div className="flex bg-[#07090d] p-1 rounded-xl border border-white/[0.05] self-start sm:self-auto shadow-inner shadow-black">
+                  {['1H', '24H', '7D', 'ALL'].map((t) => (
+                    <button 
+                      key={t}
+                      onClick={() => setTimeRange(t)}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                        timeRange === t
+                          ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/20' 
+                          : 'text-white/30 hover:text-white/60 hover:bg-white/[0.02] border border-transparent'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              {/* Chart Visualization Area */}
-              <div className="relative w-full h-[350px] bg-[#111a22] rounded-lg border border-[#334155] overflow-hidden p-4">
-                {/* Chart Controls Overlay */}
-                <div className="absolute top-4 right-4 z-10 flex gap-2">
-                  <button
-                    className="p-1.5 bg-[#233648] rounded hover:text-white text-[#92adc9] transition-colors"
-                    title="Zoom In"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">add</span>
-                  </button>
-                  <button
-                    className="p-1.5 bg-[#233648] rounded hover:text-white text-[#92adc9] transition-colors"
-                    title="Zoom Out"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">remove</span>
-                  </button>
-                  <button
-                    className="p-1.5 bg-[#233648] rounded hover:text-white text-[#92adc9] transition-colors"
-                    title="Reset Zoom"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">restart_alt</span>
-                  </button>
-                </div>
+               {/* Dynamic Chart */}
+               <div className="w-full h-[280px] bg-[#07090e] rounded-xl border border-white/[0.03] relative p-4 group overflow-hidden">
+                  {/* Hover tools */}
+                  <div className="absolute top-3 right-3 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {['zoom_in', 'zoom_out', 'restart_alt'].map(icon => (
+                       <button key={icon} className="size-7 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-colors border border-white/5">
+                         <span className="material-symbols-outlined text-[16px]">{icon}</span>
+                       </button>
+                    ))}
+                  </div>
 
-                {/* Y-Axis Labels */}
-                <div className="absolute left-4 top-4 bottom-12 w-8 flex flex-col justify-between text-xs text-[#586e86] font-mono text-right pointer-events-none">
-                  <span>8.0</span>
-                  <span>6.0</span>
-                  <span>4.0</span>
-                  <span>2.0</span>
-                  <span>0.0</span>
-                </div>
+                  {/* Y-Axis */}
+                  <div className="absolute left-3 top-3 bottom-9 w-7 flex flex-col justify-between text-[9px] text-white/20 font-mono text-right pointer-events-none">
+                    <span>8.0</span><span>6.0</span><span>4.0</span><span>2.0</span><span>0.0</span>
+                  </div>
+                  {/* X-Axis */}
+                  <div className="absolute left-12 right-3 bottom-2 h-4 flex justify-between text-[9px] text-white/20 font-mono pointer-events-none">
+                    {xLabels.map((l, i) => <span key={i}>{l}</span>)}
+                  </div>
 
-                {/* X-Axis Labels */}
-                <div className="absolute left-16 right-4 bottom-4 h-6 flex justify-between text-xs text-[#586e86] font-mono pointer-events-none">
-                  <span>10:00 AM</span>
-                  <span>10:15 AM</span>
-                  <span>10:30 AM</span>
-                  <span>10:45 AM</span>
-                  <span>11:00 AM</span>
-                </div>
+                  {/* SVG Chart */}
+                  <div className="absolute left-12 right-3 top-3 bottom-9">
+                    <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 300">
+                      <defs>
+                        <linearGradient id="entropyFill" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.35" />
+                          <stop offset="100%" stopColor="#6366f1" stopOpacity="0.02" />
+                        </linearGradient>
+                        <pattern id="egrid" width="100" height="75" patternUnits="userSpaceOnUse">
+                          <path d="M 100 0 L 0 0 0 75" fill="none" stroke="rgba(255,255,255,0.025)" strokeWidth="1" />
+                        </pattern>
+                      </defs>
+                      <rect fill="url(#egrid)" height="100%" width="100%" />
+                      
+                      {/* Threshold Line */}
+                      <line x1="0" x2="1000" y1="18.75" y2="18.75" stroke="#ef4444" strokeWidth="1" strokeDasharray="4,4" opacity="0.5" />
+                      <text fill="#ef4444" fontFamily="monospace" fontSize="9" x="10" y="14" opacity="0.7">CRITICAL 7.5</text>
 
-                {/* The Chart SVG */}
-                <div className="absolute left-16 right-4 top-4 bottom-12">
-                  <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 300">
-                    <defs>
-                      <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#137fec" stopOpacity="0.2" />
-                        <stop offset="100%" stopColor="#137fec" stopOpacity="0" />
-                      </linearGradient>
-                      <pattern id="gridPattern" width="100" height="75" patternUnits="userSpaceOnUse">
-                        <path d="M 100 0 L 0 0 0 75" fill="none" stroke="#233648" strokeWidth="1" />
-                      </pattern>
-                    </defs>
-                    {/* Grid */}
-                    <rect fill="url(#gridPattern)" height="100%" width="100%" opacity="0.3" />
-                    {/* Threshold Line (Critical 7.5) */}
-                    <line
-                      x1="0"
-                      x2="1000"
-                      y1="20"
-                      y2="20"
-                      stroke="#ef4444"
-                      strokeWidth="1"
-                      strokeDasharray="5,5"
-                      opacity="0.7"
-                    />
-                    <text fill="#ef4444" fontFamily="monospace" fontSize="10" x="10" y="15">
-                      THRESHOLD (7.5)
-                    </text>
-                    {/* Area Fill */}
-                    <path
-                      d="M0 250 L100 240 L200 245 L300 230 L400 235 L500 220 L600 210 L650 100 L700 30 L800 25 L900 35 L1000 40 L1000 300 L0 300 Z"
-                      fill="url(#chartGradient)"
-                    />
-                    {/* The Line */}
-                    <path
-                      className="drop-shadow-[0_0_4px_rgba(19,127,236,0.6)]"
-                      d="M0 250 L100 240 L200 245 L300 230 L400 235 L500 220 L600 210 L650 100 L700 30 L800 25 L900 35 L1000 40"
-                      fill="none"
-                      stroke="#137fec"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    {/* Data Point (Spike) */}
-                    <circle cx="700" cy="30" r="4" fill="#137fec" stroke="white" strokeWidth="2" />
-                    {/* Tooltip Mockup (SVG Group) */}
-                    <g transform="translate(620, 50)">
-                      <rect x="0" y="0" width="140" height="60" rx="4" fill="#1e293b" stroke="#334155" strokeWidth="1" />
-                      <text x="10" y="20" fill="#92adc9" fontSize="10">
-                        10:42 AM
-                      </text>
-                      <text x="10" y="35" fill="white" fontSize="12" fontWeight="bold">
-                        Entropy: 7.82
-                      </text>
-                      <text x="10" y="50" fill="#ef4444" fontSize="10">
-                        Spike Detected
-                      </text>
-                    </g>
-                  </svg>
-                </div>
-              </div>
+                      {/* Dynamic Area & Line */}
+                      {chartData.areaPath && (
+                        <path d={chartData.areaPath} fill="url(#entropyFill)" />
+                      )}
+                      {chartData.linePath && (
+                        <path 
+                          className="drop-shadow-[0_0_6px_rgba(99,102,241,0.5)]" 
+                          d={chartData.linePath} 
+                          fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" 
+                        />
+                      )}
+                      
+                      {/* Dynamic Critical Dots */}
+                      {chartData.dots.map((d, i) => (
+                        <g key={i}>
+                          <circle cx={d.x} cy={d.y} r="6" fill="#ef4444" opacity="0.15" className="animate-ping" />
+                          <circle cx={d.x} cy={d.y} r="4" fill="#ef4444" stroke="#06080c" strokeWidth="2" />
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
+
+                  {/* Loading overlay */}
+                  {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#07090e]/80 backdrop-blur-sm z-20">
+                      <div className="size-10 rounded-full border-2 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+                    </div>
+                  )}
+               </div>
             </div>
 
-            {/* Correlated File List Table */}
-            <div className="bg-[#1e293b] border border-[#334155] rounded-xl flex flex-col overflow-hidden">
-              <div className="p-6 border-b border-[#334155] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h3 className="text-white text-lg font-bold">Affected Files</h3>
-                  <p className="text-[#92adc9] text-sm">
-                    Files showing high entropy patterns within the selected timeframe.
-                  </p>
-                </div>
-                <div className="flex gap-3">
-                  <button className="px-3 py-1.5 rounded-lg border border-[#334155] text-white hover:bg-[#334155] text-sm flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px]">filter_list</span>
-                    Filter
-                  </button>
-                  <button className="px-3 py-1.5 rounded-lg border border-[#334155] text-white hover:bg-[#334155] text-sm flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[18px]">view_column</span>
-                    Columns
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-[#111a22] border-b border-[#334155]">
-                      <th className="px-6 py-4 text-xs font-semibold text-[#92adc9] uppercase tracking-wider">
-                        Timestamp
-                      </th>
-                      <th className="px-6 py-4 text-xs font-semibold text-[#92adc9] uppercase tracking-wider">
-                        Filename
-                      </th>
-                      <th className="px-6 py-4 text-xs font-semibold text-[#92adc9] uppercase tracking-wider">
-                        Entropy Score
-                      </th>
-                      <th className="px-6 py-4 text-xs font-semibold text-[#92adc9] uppercase tracking-wider">
-                        Size
-                      </th>
-                      <th className="px-6 py-4 text-xs font-semibold text-[#92adc9] uppercase tracking-wider text-right">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#334155]">
-                    {/* Row 1 */}
-                    <tr className="group hover:bg-[#233648]/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-mono">10:42:05</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-white">finance_q3.xlsx.encrypted</span>
-                          <span className="text-xs text-[#586e86] font-mono">/mnt/data/finance/reports/</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap align-middle">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-red-400 w-8">7.92</span>
-                          <div className="w-24 h-2 bg-[#111a22] rounded-full overflow-hidden">
-                            <div className="h-full bg-red-500 rounded-full" style={{ width: '98%' }} />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#92adc9]">2.4 MB</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button className="text-primary hover:text-white transition-colors text-sm font-medium">
-                          Details
-                        </button>
-                      </td>
-                    </tr>
-                    {/* Row 2 */}
-                    <tr className="group hover:bg-[#233648]/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-mono">10:42:02</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-white">backup_manifest.db</span>
-                          <span className="text-xs text-[#586e86] font-mono">/mnt/data/backups/</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap align-middle">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-red-400 w-8">7.85</span>
-                          <div className="w-24 h-2 bg-[#111a22] rounded-full overflow-hidden">
-                            <div className="h-full bg-red-500 rounded-full" style={{ width: '95%' }} />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#92adc9]">154 MB</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button className="text-primary hover:text-white transition-colors text-sm font-medium">
-                          Details
-                        </button>
-                      </td>
-                    </tr>
-                    {/* Row 3 (Normal File) */}
-                    <tr className="group hover:bg-[#233648]/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-mono">10:41:55</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-white">logo_vector.svg</span>
-                          <span className="text-xs text-[#586e86] font-mono">/mnt/data/assets/images/</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap align-middle">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-[#92adc9] w-8">4.21</span>
-                          <div className="w-24 h-2 bg-[#111a22] rounded-full overflow-hidden">
-                            <div className="h-full bg-green-500 rounded-full" style={{ width: '45%' }} />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#92adc9]">45 KB</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button className="text-primary hover:text-white transition-colors text-sm font-medium">
-                          Details
-                        </button>
-                      </td>
-                    </tr>
-                    {/* Row 4 */}
-                    <tr className="group hover:bg-[#233648]/30 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-white font-mono">10:41:48</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-white">employee_records.enc</span>
-                          <span className="text-xs text-[#586e86] font-mono">/mnt/data/hr/sensitive/</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap align-middle">
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-bold text-red-400 w-8">7.98</span>
-                          <div className="w-24 h-2 bg-[#111a22] rounded-full overflow-hidden">
-                            <div className="h-full bg-red-500 rounded-full" style={{ width: '99%' }} />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#92adc9]">12 MB</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button className="text-primary hover:text-white transition-colors text-sm font-medium">
-                          Details
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              {/* Table Footer / Pagination */}
-              <div className="px-6 py-4 border-t border-[#334155] flex items-center justify-between bg-[#111a22]">
-                <p className="text-sm text-[#92adc9]">
-                  Showing <span className="text-white font-medium">1-4</span> of{' '}
-                  <span className="text-white font-medium">142</span> files
-                </p>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1 rounded border border-[#334155] text-[#92adc9] text-sm hover:text-white hover:bg-[#233648] disabled:opacity-50" disabled>
-                    Previous
-                  </button>
-                  <button className="px-3 py-1 rounded border border-[#334155] text-[#92adc9] text-sm hover:text-white hover:bg-[#233648]">
-                    Next
-                  </button>
-                </div>
-              </div>
+            {/* Events Table */}
+            <div className="bg-[#0b1018]/80 backdrop-blur border border-white/[0.05] rounded-2xl shadow-2xl shadow-black/50 overflow-hidden mb-8 hover:border-white/[0.08] transition-all">
+               <div className="p-5 border-b border-white/[0.05] flex items-center justify-between bg-[#111721]/50">
+                  <div>
+                    <h3 className="text-white/90 font-bold text-lg flex items-center gap-2">
+                      Triggering Events
+                      <span className="text-[10px] font-bold text-white/30 bg-white/[0.03] px-2 py-0.5 rounded border border-white/[0.05]">{allEvents.length}</span>
+                    </h3>
+                    <p className="text-white/40 text-xs mt-0.5">All alerts correlated with entropy analysis</p>
+                  </div>
+                  <div className="flex gap-2 text-white/40">
+                    <button className="size-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center border border-transparent hover:border-white/10 transition-all" title="Filter"><span className="material-symbols-outlined text-[16px]">filter_list</span></button>
+                    <button className="size-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center border border-transparent hover:border-white/10 transition-all" title="Options"><span className="material-symbols-outlined text-[16px]">more_vert</span></button>
+                  </div>
+               </div>
+               
+               <div className="w-full">
+                  {/* List Header */}
+                  <div className="grid grid-cols-[90px_60px_1fr_180px_100px_100px] gap-3 px-5 py-2.5 bg-[#0a0e14] border-b border-white/[0.03] text-[10px] font-bold text-white/25 uppercase tracking-widest">
+                    <div>Time</div>
+                    <div>Type</div>
+                    <div>Source Path</div>
+                    <div>Entropy Score</div>
+                    <div>Process</div>
+                    <div className="text-center">Action</div>
+                  </div>
+
+                  {/* List Rows */}
+                  <div className="flex flex-col divide-y divide-white/[0.02]">
+                    {displayEvents.length === 0 && (
+                      <div className="py-16 flex flex-col items-center justify-center">
+                        <span className="material-symbols-outlined text-[48px] text-white/10 mb-3">shield_lock</span>
+                        <p className="text-white/40 text-sm font-bold">No events detected</p>
+                        <p className="text-white/25 text-xs mt-1">Your systems appear clean. Keep monitoring.</p>
+                      </div>
+                    )}
+                    {displayEvents.map((alert, i) => {
+                      const t = formatSpikeTime(alert.timestamp)
+                      const ago = timeAgo(alert.timestamp)
+                      const fullPath = alert.path || ''
+                      const name = fullPath.split('\\').pop() || fullPath.split('/').pop() || 'Unknown File'
+                      const pathOnly = fullPath.substring(0, fullPath.length - name.length) || alert.host || '—'
+                      const val = alert.entropy
+                      const isCritical = val >= 7.5
+                      
+                      return (
+                      <div key={i} className="grid grid-cols-[90px_60px_1fr_180px_100px_100px] gap-3 items-center px-5 py-3.5 hover:bg-white/[0.02] transition-colors group">
+                         {/* Time */}
+                         <div className="flex flex-col">
+                           <span className="text-xs font-mono text-white/60">{t}</span>
+                           <span className="text-[10px] text-white/25">{ago}</span>
+                         </div>
+                         
+                         {/* Type badge */}
+                         <div>
+                           {alert.isRansomware ? (
+                             <span className="inline-flex items-center justify-center size-7 rounded bg-red-500/10 border border-red-500/15" title="Ransomware">
+                               <span className="material-symbols-outlined text-[16px] text-red-400">gpp_bad</span>
+                             </span>
+                           ) : (
+                             <span className="inline-flex items-center justify-center size-7 rounded bg-orange-500/10 border border-orange-500/15" title="Honeytoken">
+                               <span className="material-symbols-outlined text-[16px] text-orange-400">key</span>
+                             </span>
+                           )}
+                         </div>
+
+                         {/* Source */}
+                         <div className="flex items-center gap-2.5 pr-4 min-w-0">
+                           <div className={`flex items-center justify-center size-7 rounded shrink-0 ${isCritical ? 'bg-red-500/10 text-red-400' : 'bg-white/[0.03] text-white/30'}`}>
+                             <span className="material-symbols-outlined text-[16px]">{isCritical ? 'lock' : 'description'}</span>
+                           </div>
+                           <div className="flex flex-col min-w-0">
+                             <span className="text-sm font-semibold text-white/90 truncate" title={name}>{name}</span>
+                             <span className="text-[10px] font-mono text-white/25 truncate" title={pathOnly}>{pathOnly}</span>
+                           </div>
+                         </div>
+                         
+                         {/* Entropy */}
+                         <div className="flex items-center gap-2">
+                           <span className={`text-xs font-bold font-mono w-7 ${isCritical ? 'text-red-400' : 'text-white/40'}`}>{val.toFixed(2)}</span>
+                           <div className="flex-1 h-1.5 bg-[#0a0e14] rounded-full overflow-hidden shadow-inner shadow-black/50">
+                             <div className={`h-full rounded-full transition-all ${isCritical ? 'bg-gradient-to-r from-red-500 to-red-400 shadow-[0_0_6px_rgba(239,68,68,0.6)]' : 'bg-white/10'}`} style={{ width: `${Math.min(100, (val / 8) * 100)}%` }} />
+                           </div>
+                         </div>
+                         
+                         {/* Process */}
+                         <div className="text-xs font-mono text-white/40 truncate" title={alert.process_name}>{alert.process_name || '—'}</div>
+                         
+                         {/* Action */}
+                         <div className="flex justify-center">
+                           <Link
+                             to={`/alerts/${alert._idx}`}
+                             className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/15 hover:border-indigo-500/30 transition-all flex items-center gap-1"
+                           >
+                             <span className="material-symbols-outlined text-[14px]">visibility</span>
+                             View
+                           </Link>
+                         </div>
+                      </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Table Footer */}
+                  <div className="px-5 py-3 bg-[#0a0e14] border-t border-white/[0.05] flex items-center justify-between text-xs text-white/30">
+                    <p>Showing <strong className="text-white/60">{displayEvents.length}</strong> of <strong className="text-white/60">{allEvents.length}</strong> events</p>
+                    <Link to="/alerts" className="text-indigo-400 hover:text-indigo-300 font-bold uppercase tracking-widest text-[10px] flex items-center gap-1 transition-colors">
+                      View All In Alerts <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </Link>
+                  </div>
+               </div>
             </div>
+
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
