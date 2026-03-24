@@ -111,21 +111,6 @@ export default function SpecificAlertViewPage() {
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="relative hidden md:flex items-center">
-            <span className="absolute left-3 text-text-secondary material-symbols-outlined text-[20px]">search</span>
-            <input
-              className="w-64 bg-surface-dark border-none rounded-lg py-2 pl-10 pr-4 text-sm text-white placeholder-text-secondary focus:ring-1 focus:ring-primary"
-              placeholder="Search alerts, hosts, hashes..."
-            />
-          </div>
-          <button className="relative p-2 text-text-secondary hover:text-white">
-            <span className="material-symbols-outlined">notifications</span>
-            <span className="absolute top-2 right-2 size-2 bg-danger rounded-full border-2 border-background-dark" />
-          </button>
-          <div
-            className="bg-center bg-no-repeat bg-cover rounded-full size-9 border border-surface-dark"
-            style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCBGWm_A3xJs9cVmw2Vk29_idfHrCo_D1p9unfQzQElfFNU9Gk4kkUjbjfRdhvC9wl00AQ9gB_1YyX852nH73PegjhE56mnmqlhHsCLg4SEXUYIMYVXut5DN10Aj2FfmKwTJC7BEuDxt1GTorUe-tBbKSK95ca42MYiF0J5cz219c0EWtguU3ucUs86Y9xMUaRs6PN5aSzNR8a3SRB3eghgPemyLdxbxvhuM7M5s2lShyG5wlgn9H5V7F2G3qtCTK9_Ejlv1UBkebo")' }}
-          />
         </div>
       </header>
 
@@ -289,7 +274,7 @@ export default function SpecificAlertViewPage() {
                     <div className="p-5 flex flex-col gap-4">
                       {[
                         { label: 'Hostname', value: alert.host || '—', copy: true },
-                        { label: 'IP Address', value: '—', copy: false },
+                        { label: 'IP Address', value: alert.local_ip || '—', copy: !!alert.local_ip },
                         { label: 'User', value: alert.process_name ? `${alert.process_name}` : '—', copy: false },
                         { label: 'PID', value: alert.pid != null ? String(alert.pid) : '—', copy: false },
                         { label: 'Alert Type', value: alert.alert_type || '—', copy: false },
@@ -452,27 +437,7 @@ export default function SpecificAlertViewPage() {
                             </tr>
                           )}
 
-                          {/* All other alerts from same host as additional activity */}
-                          {allAlerts
-                            .map((a, i) => ({ ...a, idx: i }))
-                            .filter(a => a.host === alert.host && a.idx !== currentIdx && a.path)
-                            .map(a => (
-                              <tr key={a.idx} className="hover:bg-white/5 transition-colors cursor-pointer" onClick={() => navigate(`/alerts/${a.idx}`)}>
-                                <td className="px-6 py-3">
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-warning/10 text-warning border border-warning/10">
-                                    <span className="size-1.5 rounded-full bg-warning" />
-                                    {a.alert_type === 'ransomware_suspected' ? 'Encrypt' : 'Access'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-3 font-mono text-text-secondary truncate max-w-[200px] lg:max-w-[300px]" title={a.path}>
-                                  {(a.path || '').length > 40 ? `...${(a.path || '').slice(-40)}` : a.path}
-                                </td>
-                                <td className="px-6 py-3 text-text-secondary">—</td>
-                                <td className="px-6 py-3 text-text-secondary text-right font-mono">
-                                  {new Date((a.timestamp || 0) * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                </td>
-                              </tr>
-                            ))}
+
                         </tbody>
                       </table>
                       <div className="px-6 py-3 bg-background-dark/30 border-t border-white/5 text-center">
