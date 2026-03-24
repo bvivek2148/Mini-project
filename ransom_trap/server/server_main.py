@@ -340,21 +340,50 @@ async def agent_stop() -> Dict[str, Any]:
 
 @app.post("/agent/simulate", response_class=JSONResponse)
 async def agent_simulate(req: SimulateRequest | None = None) -> Dict[str, Any]:
-    """Execute the simulated ransomware script in the background."""
+    """Execute the simulated ransomware script AND directly create alerts."""
+    import time as _time
+    import socket
+
     script_path = BASE_DIR.parent / "test_files" / "simulate_ransomware.py"
     if not script_path.exists():
         return JSONResponse({"error": "Simulation script not found"}, status_code=404)
         
     target_dir = req.target_dir if hasattr(req, 'target_dir') and req.target_dir else str(BASE_DIR.parent / "test_files")
     
+    # 1. Run the actual simulation script in the background
     try:
         subprocess.Popen(
             [sys.executable, str(script_path), target_dir],
             cwd=str(BASE_DIR.parent / "test_files")
         )
-        return {"status": "started", "message": f"Simulation triggered on {target_dir}"}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+    # 2. Directly create a ransomware alert so the dashboard always shows it
+    hostname = socket.gethostname()
+    alert = {
+        "alert_type": "ransomware_suspected",
+        "host": hostname,
+        "pid": None,
+        "process_name": "simulate_ransomware.py",
+        "timestamp": _time.time(),
+        "path": target_dir,
+        "process_killed": False,
+        "folder_locked": False,
+        "details": {
+            "source": "simulation",
+            "message": f"Ransomware simulation triggered on {target_dir}",
+        },
+    }
+    storage.add_alert(alert)
+    print(f"[SIMULATE] Alert created and stored: {alert['alert_type']} on {hostname}")
+
+    # 3. Dispatch notifications (Telegram, email, etc.) in background
+    import threading
+    threading.Thread(target=_dispatch_notifications, args=(alert,), daemon=True).start()
+    print("[SIMULATE] Notification dispatch triggered")
+
+    return {"status": "started", "message": f"Simulation triggered on {target_dir}", "alert_created": True}
 
 @app.post("/agent/simulate/undo", response_class=JSONResponse)
 async def agent_simulate_undo(req: SimulateRequest | None = None) -> Dict[str, Any]:

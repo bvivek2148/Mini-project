@@ -56,9 +56,9 @@ class NotificationDispatcher:
         
         if not token or not chat_id:
             self.log.warning("Telegram enabled but missing bot_token or chat_id")
+            print(f"[TELEGRAM] SKIPPED: bot_token={'SET' if token else 'MISSING'}, chat_id={'SET' if chat_id else 'MISSING'}")
             return
             
-        # The user's config.yaml has their actual bot token
         url = f"https://api.telegram.org/bot{token}/sendMessage"
         payload = {
             "chat_id": chat_id,
@@ -66,11 +66,16 @@ class NotificationDispatcher:
             "parse_mode": "Markdown"
         }
         
+        print(f"[TELEGRAM] Sending alert to chat_id={chat_id}...")
         try:
-            resp = requests.post(url, json=payload, timeout=5)
-            if not resp.ok:
+            resp = requests.post(url, json=payload, timeout=10)
+            if resp.ok:
+                print(f"[TELEGRAM] ✅ Message sent successfully to chat_id={chat_id}")
+            else:
+                print(f"[TELEGRAM] ❌ API failed ({resp.status_code}): {resp.text}")
                 self.log.error("Telegram API failed: %s", resp.text)
         except Exception as e:
+            print(f"[TELEGRAM] ❌ Connection error: {e}")
             self.log.error("Failed to connect to Telegram API: %s", e)
 
     def send_email(self, text: str, alert_type: str) -> None:
