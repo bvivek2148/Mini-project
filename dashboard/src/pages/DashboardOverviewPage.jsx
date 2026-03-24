@@ -385,8 +385,8 @@ export default function DashboardOverviewPage() {
                 <Logo size={24} />
               </div>
               <div>
-                <p style={{ color: T.text, fontSize: 15, fontWeight: 800, lineHeight: 1.2, margin: 0 }}>Ransom Trap</p>
-                <p style={{ color: '#60a5fa', fontSize: 11, fontWeight: 600, margin: 0 }}>SOC Dashboard</p>
+                <p style={{ color: T.text, fontSize: 17, fontWeight: 800, lineHeight: 1.2, margin: 0 }}>Ransom Trap</p>
+                <p style={{ color: '#60a5fa', fontSize: 12, fontWeight: 600, margin: 0 }}>SOC Dashboard</p>
               </div>
             </div>
             {!isDesktop && (
@@ -423,10 +423,10 @@ export default function DashboardOverviewPage() {
                 <span style={{ position: 'relative', display: 'block', width: 8, height: 8, borderRadius: '50%', background: agentRunning ? '#10b981' : '#ef4444' }} />
               </span>
               <div style={{ flex: 1, textAlign: 'left' }}>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: agentRunning ? '#34d399' : '#f87171', lineHeight: 1.3 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: agentRunning ? '#34d399' : '#f87171', lineHeight: 1.3 }}>
                   Agent {agentToggling ? 'Switching…' : agentRunning ? 'Online' : 'Offline'}
                 </p>
-                <p style={{ margin: 0, fontSize: 10, marginTop: 1, color: agentRunning ? 'rgba(52,211,153,.55)' : 'rgba(248,113,113,.5)' }}>
+                <p style={{ margin: 0, fontSize: 11, marginTop: 1, color: agentRunning ? 'rgba(52,211,153,.55)' : 'rgba(248,113,113,.5)' }}>
                   {agentRunning ? 'Click to stop' : 'Click to start'}
                 </p>
               </div>
@@ -439,7 +439,7 @@ export default function DashboardOverviewPage() {
           {/* scrollable section */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 20 }}>
             {/* nav label */}
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', color: T.muted, padding: '0 18px 6px', margin: 0 }}>Main Menu</p>
+            <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', color: T.muted, padding: '0 18px 6px', margin: 0 }}>Main Menu</p>
 
             {/* nav links */}
             <nav style={{ flex: 1, padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -453,7 +453,7 @@ export default function DashboardOverviewPage() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 11,
                       padding: '10px 12px', borderRadius: 10,
-                      fontSize: 14, fontWeight: active ? 600 : 500,
+                      fontSize: 15, fontWeight: active ? 600 : 500,
                       color: active ? T.text : T.sub,
                       background: active
                         ? (dark ? 'linear-gradient(135deg,rgba(59,130,246,0.18),rgba(99,102,241,0.1))' : 'rgba(59,130,246,0.09)')
@@ -464,7 +464,7 @@ export default function DashboardOverviewPage() {
                     onMouseEnter={e => { if (!active) { e.currentTarget.style.color = T.text; e.currentTarget.style.background = T.inputBg } }}
                     onMouseLeave={e => { if (!active) { e.currentTarget.style.color = T.sub; e.currentTarget.style.background = 'transparent' } }}
                   >
-                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: active ? '#60a5fa' : 'inherit', flexShrink: 0 }}>{item.icon}</span>
+                    <span className="material-symbols-outlined" style={{ fontSize: 20, color: active ? '#60a5fa' : 'inherit', flexShrink: 0 }}>{item.icon}</span>
                     <span style={{ flex: 1 }}>{item.label}</span>
                     {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#60a5fa', flexShrink: 0, display: 'block' }} />}
                   </Link>
@@ -478,21 +478,21 @@ export default function DashboardOverviewPage() {
             <Link
               to="/settings"
               onClick={closeSidebar}
-              style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 500, color: T.sub, textDecoration: 'none', border: '1px solid transparent', transition: 'all .16s' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 10, fontSize: 15, fontWeight: 500, color: T.sub, textDecoration: 'none', border: '1px solid transparent', transition: 'all .16s' }}
               onMouseEnter={e => { e.currentTarget.style.color = T.text; e.currentTarget.style.background = T.inputBg }}
               onMouseLeave={e => { e.currentTarget.style.color = T.sub; e.currentTarget.style.background = 'transparent' }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>settings</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>settings</span>
               Settings
             </Link>
             <button
               type="button"
               onClick={() => { closeSidebar(); navigate('/login', { replace: true }) }}
-              style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 500, color: T.sub, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', textAlign: 'left', transition: 'all .16s', width: '100%' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 10, fontSize: 15, fontWeight: 500, color: T.sub, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', textAlign: 'left', transition: 'all .16s', width: '100%' }}
               onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.background = 'rgba(239,68,68,0.07)' }}
               onMouseLeave={e => { e.currentTarget.style.color = T.sub; e.currentTarget.style.background = 'transparent' }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>logout</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>logout</span>
               Logout
             </button>
           </div>
