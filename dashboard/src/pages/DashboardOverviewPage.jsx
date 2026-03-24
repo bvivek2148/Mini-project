@@ -1,938 +1,1290 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAlerts } from '../hooks/useAlerts.js'
 import { fetchAgentStatus, agentStart, agentStop } from '../api.js'
 
+/* ═══════════════════════════════════════════════
+   THEME CONTEXT — shared across all sub-components
+═══════════════════════════════════════════════ */
+const ThemeCtx = createContext({ dark: true, T: {} })
+const useTheme = () => useContext(ThemeCtx)
+
+function mkTheme(dark) {
+  return dark ? {
+    dark,
+    pageBg: '#060b13',
+    sidebarBg: '#070d18',
+    sidebarBorder: 'rgba(255,255,255,0.06)',
+    headerBg: 'rgba(6,11,19,0.95)',
+    headerBorder: 'rgba(255,255,255,0.06)',
+    cardBg: '#07101c',
+    cardBorder: 'rgba(255,255,255,0.07)',
+    dropdownBg: '#0c1525',
+    dropdownBorder: 'rgba(255,255,255,0.1)',
+    dropdownShadow: '0 20px 60px rgba(0,0,0,0.8)',
+    text: '#f1f5f9',
+    sub: '#4a6580',
+    muted: '#1e3348',
+    inputBg: 'rgba(255,255,255,0.05)',
+    inputBorder: 'rgba(255,255,255,0.09)',
+    rowHover: 'rgba(255,255,255,0.025)',
+    divider: 'rgba(255,255,255,0.06)',
+    btnHoverBg: 'rgba(255,255,255,0.07)',
+  } : {
+    dark,
+    pageBg: '#eef2f7',
+    sidebarBg: '#ffffff',
+    sidebarBorder: 'rgba(15,23,42,0.1)',
+    headerBg: 'rgba(255,255,255,0.97)',
+    headerBorder: 'rgba(15,23,42,0.09)',
+    cardBg: '#ffffff',
+    cardBorder: 'rgba(15,23,42,0.09)',
+    dropdownBg: '#ffffff',
+    dropdownBorder: 'rgba(15,23,42,0.12)',
+    dropdownShadow: '0 8px 40px rgba(15,23,42,0.15)',
+    text: '#0f172a',
+    sub: '#475569',
+    muted: '#94a3b8',
+    inputBg: 'rgba(15,23,42,0.05)',
+    inputBorder: 'rgba(15,23,42,0.12)',
+    rowHover: 'rgba(15,23,42,0.03)',
+    divider: 'rgba(15,23,42,0.08)',
+    btnHoverBg: 'rgba(15,23,42,0.06)',
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════ */
 function formatTs(ts) {
   if (!ts) return '—'
-  const d = new Date(ts * 1000)
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 function LiveClock() {
-  const [time, setTime] = useState(new Date())
+  const [t, setT] = useState(new Date())
   useEffect(() => {
-    const id = setInterval(() => setTime(new Date()), 1000)
+    const id = setInterval(() => setT(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
+  return <span style={{ fontFamily: 'monospace' }}>{t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+}
+
+/* ═══════════════════════════════════════════════
+   LOGO SVG
+═══════════════════════════════════════════════ */
+function Logo({ size = 28 }) {
   return (
-    <span className="font-mono tabular-nums">
-      {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-    </span>
+    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="rtLogo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#60a5fa" />
+          <stop offset="100%" stopColor="#818cf8" />
+        </linearGradient>
+      </defs>
+      <path d="M20 3L5 9.5V19C5 27.5 11.8 35.3 20 37C28.2 35.3 35 27.5 35 19V9.5L20 3Z"
+        fill="url(#rtLogo)" fillOpacity="0.18" stroke="url(#rtLogo)" strokeWidth="1.6" strokeLinejoin="round" />
+      <path d="M20 13.5L24.3 15.9V20.9L20 23.3L15.7 20.9V15.9L20 13.5Z"
+        fill="url(#rtLogo)" fillOpacity="0.3" stroke="url(#rtLogo)" strokeWidth="1.2" />
+      <line x1="20" y1="9" x2="20" y2="12.5" stroke="url(#rtLogo)" strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="20" y1="23.5" x2="20" y2="27" stroke="url(#rtLogo)" strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="13" y1="17.7" x2="16.5" y2="17.7" stroke="url(#rtLogo)" strokeWidth="1.3" strokeLinecap="round" />
+      <line x1="23.5" y1="17.7" x2="27" y2="17.7" stroke="url(#rtLogo)" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
   )
 }
 
-const NAV_ITEMS = [
-  { to: '/',                         icon: 'dashboard',        label: 'Overview'         },
-  { to: '/scan',                     icon: 'document_scanner', label: 'Manual Scan'      },
-  { to: '/Incidents',                icon: 'warning',          label: 'Incidents'        },
-  { to: '/entropy',                  icon: 'ssid_chart',       label: 'Entropy Analysis' },
-  { to: '/network',                  icon: 'hub',              label: 'Network Topology' },
-  { to: '/honeytokens',              icon: 'bug_report',       label: 'Honeytokens'      },
-  { to: '/reports',                  icon: 'description',      label: 'Reports'          },
-]
-
-const QUICK_ACTIONS = [
-  { to: '/scan',        icon: 'document_scanner', label: 'Run Scan',    color: 'blue'    },
-  { to: '/Incidents',   icon: 'warning',          label: 'Incidents',   color: 'red'     },
-  { to: '/entropy',     icon: 'ssid_chart',       label: 'Entropy',     color: 'indigo'  },
-  { to: '/network',     icon: 'hub',              label: 'Network',     color: 'cyan'    },
-  { to: '/honeytokens', icon: 'bug_report',       label: 'Honeytokens', color: 'amber'   },
-  { to: '/reports',     icon: 'description',      label: 'Reports',     color: 'emerald' },
-]
-
-const COLOR_MAP = {
-  blue:    { bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    text: 'text-blue-400'    },
-  red:     { bg: 'bg-red-500/10',     border: 'border-red-500/20',     text: 'text-red-400'     },
-  indigo:  { bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20',  text: 'text-indigo-400'  },
-  cyan:    { bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20',    text: 'text-cyan-400'    },
-  amber:   { bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   text: 'text-amber-400'   },
-  emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-400' },
+/* ═══════════════════════════════════════════════
+   KPI CARD
+═══════════════════════════════════════════════ */
+function KpiCard({ icon, iconColor, accentColor, label, value, valueColor, badge }) {
+  const { T } = useTheme()
+  const bord = T.dark ? `${accentColor}22` : `${accentColor}35`
+  const bg = T.dark
+    ? `linear-gradient(135deg,${accentColor}10,rgba(8,16,30,0.95))`
+    : `linear-gradient(135deg,${accentColor}08,#ffffff)`
+  return (
+    <div
+      style={{ borderRadius: 14, padding: '18px 20px', background: bg, border: `1px solid ${bord}`, transition: 'all .25s', cursor: 'default', overflow: 'hidden' }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = `${accentColor}50`; e.currentTarget.style.boxShadow = `0 0 28px ${accentColor}14` }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = bord; e.currentTarget.style.boxShadow = 'none' }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: `${accentColor}18`, border: `1px solid ${accentColor}28`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 20, color: iconColor }}>{icon}</span>
+        </div>
+        {badge && (
+          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 99, background: badge.bg, color: badge.color, display: 'flex', alignItems: 'center', gap: 4 }}>
+            {badge.dot && <span style={{ width: 5, height: 5, borderRadius: '50%', background: badge.color, animation: 'rtPulse 1.5s infinite', display: 'block' }} />}
+            {badge.text}
+          </span>
+        )}
+      </div>
+      <div style={{ fontSize: 40, fontWeight: 900, letterSpacing: '-1.5px', color: valueColor, lineHeight: 1, fontVariantNumeric: 'tabular-nums', marginBottom: 5 }}>{value}</div>
+      <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: T.sub }}>{label}</div>
+      <div style={{ marginTop: 12, height: 1, background: `linear-gradient(90deg,${accentColor}40,transparent)` }} />
+    </div>
+  )
 }
 
+/* ═══════════════════════════════════════════════
+   NAVIGATION CONSTANTS
+═══════════════════════════════════════════════ */
+const NAV = [
+  { to: '/', icon: 'dashboard', label: 'Overview' },
+  { to: '/scan', icon: 'document_scanner', label: 'Manual Scan' },
+  { to: '/Incidents', icon: 'warning', label: 'Incidents' },
+  { to: '/entropy', icon: 'ssid_chart', label: 'Entropy Analysis' },
+  { to: '/network', icon: 'hub', label: 'Network Topology' },
+  { to: '/honeytokens', icon: 'bug_report', label: 'Honeytokens' },
+  { to: '/reports', icon: 'description', label: 'Reports' },
+]
+
+const QUICK = [
+  { to: '/scan', icon: 'document_scanner', label: 'Run Scan', c: '#60a5fa' },
+  { to: '/Incidents', icon: 'warning', label: 'Incidents', c: '#f87171' },
+  { to: '/entropy', icon: 'ssid_chart', label: 'Entropy', c: '#818cf8' },
+  { to: '/network', icon: 'hub', label: 'Network', c: '#22d3ee' },
+  { to: '/honeytokens', icon: 'bug_report', label: 'Honeytokens', c: '#fbbf24' },
+  { to: '/reports', icon: 'description', label: 'Reports', c: '#34d399' },
+]
+
+/* ═══════════════════════════════════════════════
+   MAIN COMPONENT
+═══════════════════════════════════════════════ */
 export default function DashboardOverviewPage() {
   const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { alerts, loading, error } = useAlerts(5000)
 
-  const [agentRunning, setAgentRunning]   = useState(false)
+  /* ── theme ── */
+  const [dark, setDark] = useState(true)
+  const T = mkTheme(dark)
+  const theme = { dark, T }
+
+  /* ── desktop detection ── */
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024)
+  useEffect(() => {
+    const fn = () => setIsDesktop(window.innerWidth >= 1024)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+
+  /* ── sidebar ── */
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 1024)
+  const closeSidebar = useCallback(() => setSidebarOpen(false), [])
+
+  /* ── data ── */
+  const { alerts, loading } = useAlerts(5000)
+  const [agentRunning, setAgentRunning] = useState(false)
   const [agentToggling, setAgentToggling] = useState(false)
-  const [showNotif, setShowNotif]         = useState(false)
+
+  /* ── panel states ── */
+  const [showNotif, setShowNotif] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const [showRestart, setShowRestart] = useState(false)
+  const [chartRange,  setChartRange]  = useState('24H')
+
+  /* ── refs ── */
   const notifRef = useRef(null)
+  const profileRef = useRef(null)
+  const searchRef = useRef(null)
 
+  /* ── outside click closes dropdowns ── */
   useEffect(() => {
-    function handleOutside(e) {
+    function onDown(e) {
       if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false)
+      if (profileRef.current && !profileRef.current.contains(e.target)) setShowProfile(false)
     }
-    document.addEventListener('mousedown', handleOutside)
-    return () => document.removeEventListener('mousedown', handleOutside)
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
   }, [])
 
+  /* ── agent polling ── */
   useEffect(() => {
-    let cancelled = false
-    async function poll() {
-      try {
-        const s = await fetchAgentStatus()
-        if (!cancelled) setAgentRunning(s.running)
-      } catch { /* server may not be up yet */ }
+    let dead = false
+    const run = async () => {
+      try { const s = await fetchAgentStatus(); if (!dead) setAgentRunning(s.running) } catch { }
     }
-    poll()
-    const id = setInterval(poll, 5000)
-    return () => { cancelled = true; clearInterval(id) }
+    run()
+    const id = setInterval(run, 5000)
+    return () => { dead = true; clearInterval(id) }
   }, [])
 
-  async function handleAgentToggle() {
+  async function toggleAgent() {
     if (agentToggling) return
     setAgentToggling(true)
     try {
       if (agentRunning) { await agentStop(); setAgentRunning(false) }
-      else              { await agentStart(); setAgentRunning(true)  }
-    } catch (e) { console.error('Agent toggle failed:', e) }
+      else { await agentStart(); setAgentRunning(true) }
+    } catch (e) { console.error(e) }
     finally { setAgentToggling(false) }
   }
 
-  const ransomwareAlerts = alerts.filter(a => a.alert_type === 'ransomware_suspected')
-  const honeytokenAlerts = alerts.filter(a => a.alert_type === 'honeytoken_access')
-  const recentAlerts     = [...alerts].reverse().slice(0, 5)
+  /* ── derived data ── */
+  const ransomAlerts = alerts.filter(a => a.alert_type === 'ransomware_suspected')
+  const honeyAlerts = alerts.filter(a => a.alert_type === 'honeytoken_access')
+  const recentAlerts = [...alerts].reverse().slice(0, 6)
 
-  const timelineBuckets = React.useMemo(() => {
-    const now = Date.now() / 1000
-    const buckets = Array.from({ length: 12 }, (_, i) => ({
-      label: `${(11 - i) * 5}m`, count: 0,
-      start: now - (12 - i) * 300, end: now - (11 - i) * 300,
-    }))
-    alerts.forEach(a => {
-      const b = buckets.find(b => (a.timestamp || 0) >= b.start && (a.timestamp || 0) < b.end)
-      if (b) b.count++
+  const buckets = React.useMemo(() => {
+    const now = Math.floor(Date.now() / 1000)
+    let count = 12
+    let step = 300 // default 1H (5m buckets, 12 count = 60m)
+    let unit = 'm'
+
+    if (chartRange === '1H')  { step = 300;   unit = 'm'; }
+    if (chartRange === '6H')  { step = 1800;  unit = 'h'; }
+    if (chartRange === '24H') { step = 7200;  unit = 'h'; }
+    if (chartRange === '7D')  { step = 43200; unit = 'd'; count = 14 }
+
+    const b = Array.from({ length: count }, (_, i) => {
+      const sAgo = (count - 1 - i) * step
+      let label = ''
+      if (unit === 'm') label = `${Math.floor(sAgo/60)}m`
+      else if (unit === 'h') {
+        const h = sAgo/3600
+        label = h === 0 ? 'NOW' : (h < 1 ? '<1h' : `${Math.floor(h)}h`)
+      }
+      else label = `${Math.floor(sAgo/86400)}d`
+
+      return {
+        label: i === count - 1 ? 'NOW' : label,
+        count: 0,
+        start: now - (count - i) * step,
+        end:   now - (count - 1 - i) * step,
+      }
     })
-    return buckets
-  }, [alerts])
-  const maxBucket = Math.max(1, ...timelineBuckets.map(b => b.count))
+
+    alerts.forEach(a => {
+      const ts = a.timestamp || 0
+      const bk = b.find(x => ts >= x.start && ts < x.end)
+      if (bk) {
+        bk.count++
+        if (a.alert_type === 'ransomware_suspected') bk.crit++
+      }
+    })
+    return b
+  }, [alerts, chartRange])
+  const maxB = Math.max(1, ...buckets.map(b => b.count))
+  const avgB = Math.round(buckets.reduce((a, b) => a + b.count, 0) / buckets.length)
+
+  // helper to generate smooth SVG path from bucket counts
+  const genPath = (data, w, h, isFill = false) => {
+    if (!data.length) return ''
+    const maxVal = Math.max(1, ...data.map(d => d.count))
+    const pts = data.map((d, i) => ({
+      x: (i / (data.length - 1)) * w,
+      y: h - (d.count / maxVal) * (h * 0.8) - 10
+    }))
+    let d = `M ${pts[0].x},${pts[0].y} `
+    for (let i = 0; i < pts.length - 1; i++) {
+      const cp1x = pts[i].x + (pts[i+1].x - pts[i].x) / 2
+      d += `C ${cp1x},${pts[i].y} ${cp1x},${pts[i+1].y} ${pts[i+1].x},${pts[i+1].y} `
+    }
+    if (isFill) d += `V ${h} H 0 Z`
+    return d
+  }
+  const chartPath = genPath(buckets, 500, 100)
+  const chartFill = genPath(buckets, 500, 100, true)
 
   const hostMap = React.useMemo(() => {
-    const map = {}
+    const m = {}
     alerts.forEach(a => {
       const h = a.host || 'Unknown'
-      if (!map[h]) map[h] = { host: h, total: 0, ransomware: 0, honeytoken: 0, lastTs: 0 }
-      map[h].total++
-      if (a.alert_type === 'ransomware_suspected') map[h].ransomware++
-      else map[h].honeytoken++
-      if ((a.timestamp || 0) > map[h].lastTs) map[h].lastTs = a.timestamp
+      if (!m[h]) m[h] = { host: h, total: 0, ransom: 0, honey: 0 }
+      m[h].total++
+      if (a.alert_type === 'ransomware_suspected') m[h].ransom++; else m[h].honey++
     })
-    return Object.values(map).sort((a, b) => b.total - a.total)
+    return Object.values(m).sort((a, b) => b.total - a.total)
   }, [alerts])
 
-  const securityScore  = ransomwareAlerts.length > 0 ? 62 : agentRunning ? 94 : 28
-  const scoreColor     = ransomwareAlerts.length > 0 ? '#f59e0b' : agentRunning ? '#10b981' : '#ef4444'
-  const scoreColorAlt  = ransomwareAlerts.length > 0 ? '#f97316' : agentRunning ? '#06b6d4' : '#dc2626'
-  const scoreLabel     = ransomwareAlerts.length > 0 ? 'Elevated Risk' : agentRunning ? 'Protected' : 'Unprotected'
-  const scoreLabelCls  = ransomwareAlerts.length > 0 ? 'text-amber-400' : agentRunning ? 'text-emerald-400' : 'text-red-400'
-  const scoreDash      = securityScore * 3.39
+  const secScore = ransomAlerts.length > 0 ? 62 : agentRunning ? 94 : 28
+  const sColor = ransomAlerts.length > 0 ? '#f59e0b' : agentRunning ? '#10b981' : '#ef4444'
+  const sColorB = ransomAlerts.length > 0 ? '#f97316' : agentRunning ? '#06b6d4' : '#dc2626'
+  const sLabel = ransomAlerts.length > 0 ? 'Elevated Risk' : agentRunning ? 'Protected' : 'Unprotected'
 
+  /* ── search focus helpers ── */
+  function onSearchFocus() {
+    if (searchRef.current) {
+      searchRef.current.style.borderColor = 'rgba(96,165,250,0.5)'
+      searchRef.current.style.background = dark ? 'rgba(96,165,250,0.07)' : 'rgba(59,130,246,0.06)'
+    }
+  }
+  function onSearchBlur() {
+    if (searchRef.current) {
+      searchRef.current.style.borderColor = T.inputBorder
+      searchRef.current.style.background = T.inputBg
+    }
+  }
+
+  /* ── icon button style helper ── */
+  function iconBtn(active = false) {
+    return {
+      width: 36, height: 36, borderRadius: 9,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: active ? T.btnHoverBg : 'transparent',
+      border: `1px solid ${active ? T.inputBorder : 'transparent'}`,
+      color: T.sub, cursor: 'pointer', transition: 'all .18s',
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════
+     RENDER
+  ════════════════════════════════════════════════════════ */
   return (
-    <div className="flex h-screen w-full overflow-hidden" style={{ background: '#05080f' }}>
+    <ThemeCtx.Provider value={theme}>
+      <div style={{ display: 'flex', height: '100vh', width: '100%', overflow: 'hidden', background: T.pageBg, fontFamily: 'Inter,-apple-system,sans-serif' }}>
 
-      {/* ── Mobile overlay ── */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+        {/* ── CSS keyframes ── */}
+        <style>{`
+          @keyframes rtPing  { 75%,100%{transform:scale(2.2);opacity:0} }
+          @keyframes rtSpin  { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+          @keyframes rtPulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+          @keyframes rtFloat { 0%,100%{transform:translate(0,0)} 50%{transform:translate(6px,-8px)} }
+          @keyframes rtFadeIn{ from{opacity:0;transform:translateY(-6px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+          .rt-ping   { animation: rtPing   1.2s cubic-bezier(0,0,.2,1) infinite }
+          .rt-spin   { animation: rtSpin   1s linear infinite }
+          .rt-pulse  { animation: rtPulse  2s ease-in-out infinite }
+          .rt-float  { animation: rtFloat  7s ease-in-out infinite }
+          .rt-fadein { animation: rtFadeIn .18s ease-out forwards }
+          /* scrollbar */
+          ::-webkit-scrollbar{width:4px;height:4px}
+          ::-webkit-scrollbar-track{background:transparent}
+          ::-webkit-scrollbar-thumb{background:rgba(128,128,128,.15);border-radius:99px}
+        `}</style>
 
-      {/* ════════════════════════════════════
-          SIDEBAR
-      ════════════════════════════════════ */}
-      <aside className={`w-[256px] flex-col bg-[#070c15] flex fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
-        style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+        {/* ── mobile overlay ── */}
+        {!isDesktop && sidebarOpen && (
+          <div
+            onClick={closeSidebar}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 100 }}
+          />
+        )}
 
-        <div className="flex h-full flex-col px-3 py-4">
-
-          {/* Brand */}
-          <div className="flex items-center gap-3 px-3 py-2 mb-5">
-            <div className="size-9 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.25),rgba(99,102,241,0.15))', border: '1px solid rgba(59,130,246,0.2)' }}>
-              <svg className="size-5" fill="none" viewBox="0 0 48 48" style={{ color: '#60a5fa' }}>
-                <path d="M24 4L6 12V22C6 33.5 13.7 44.1 24 46C34.3 44.1 42 33.5 42 22V12L24 4Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5"/>
-                <path d="M16 24l5 5 11-10" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5"/>
-              </svg>
+        {/* ════════════════ SIDEBAR ════════════════ */}
+        <aside style={{
+          width: isDesktop ? (sidebarOpen ? 256 : 0) : 256,
+          flexShrink: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          background: T.sidebarBg,
+          borderRight: sidebarOpen ? `1px solid ${T.sidebarBorder}` : '0 solid transparent',
+          height: '100vh',
+          overflow: 'hidden',
+          position: isDesktop ? 'relative' : 'fixed',
+          top: 0, left: 0, bottom: 0,
+          zIndex: isDesktop ? 'auto' : 200,
+          transform: isDesktop ? 'none' : (sidebarOpen ? 'translateX(0)' : 'translateX(-100%)'),
+          transition: 'transform .3s cubic-bezier(.4,0,.2,1), width .3s cubic-bezier(.4,0,.2,1), background .2s, border-color .2s',
+          boxShadow: (!isDesktop && sidebarOpen) ? '4px 0 40px rgba(0,0,0,0.3)' : 'none',
+          opacity: isDesktop && !sidebarOpen ? 0 : 1,
+          visibility: isDesktop && !sidebarOpen ? 'hidden' : 'visible',
+        }}>
+          {/* brand */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 14px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <div style={{ background: 'linear-gradient(135deg,rgba(96,165,250,0.18),rgba(129,140,248,0.12))', border: '1px solid rgba(96,165,250,0.28)', borderRadius: 11, padding: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Logo size={24} />
+              </div>
+              <div>
+                <p style={{ color: T.text, fontSize: 15, fontWeight: 800, lineHeight: 1.2, margin: 0 }}>Ransom Trap</p>
+                <p style={{ color: '#60a5fa', fontSize: 11, fontWeight: 600, margin: 0 }}>SOC Dashboard</p>
+              </div>
             </div>
-            <div>
-              <p className="text-white text-[14px] font-black tracking-tight leading-tight">Ransom Trap</p>
-              <p className="text-[10px] font-semibold" style={{ color: '#3b82f6' }}>SOC Dashboard</p>
-            </div>
+            {!isDesktop && (
+              <button
+                onClick={closeSidebar}
+                style={{ width: 28, height: 28, borderRadius: 7, background: T.inputBg, border: `1px solid ${T.sidebarBorder}`, color: T.sub, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', flexShrink: 0 }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.color = T.sub; e.currentTarget.style.borderColor = T.sidebarBorder }}
+                title="Close sidebar"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 15 }}>close</span>
+              </button>
+            )}
           </div>
 
-          {/* Agent status pill */}
-          <button onClick={handleAgentToggle} disabled={agentToggling}
-            className="flex items-center gap-2.5 mx-0 mb-4 px-3 py-2.5 rounded-xl transition-all disabled:opacity-50"
-            style={{
-              background: agentRunning ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-              border: agentRunning ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(239,68,68,0.18)',
-            }}>
-            <span className="relative flex size-2">
-              {agentRunning && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#10b981' }} />}
-              <span className="relative inline-flex rounded-full size-2" style={{ background: agentRunning ? '#10b981' : '#ef4444' }} />
-            </span>
-            <div className="flex-1 text-left">
-              <p className="text-[11px] font-bold" style={{ color: agentRunning ? '#34d399' : '#f87171' }}>
-                Agent {agentToggling ? 'Switching…' : agentRunning ? 'Online' : 'Offline'}
-              </p>
-              <p className="text-[9px]" style={{ color: agentRunning ? 'rgba(52,211,153,0.55)' : 'rgba(248,113,113,0.55)' }}>
-                {agentRunning ? 'Click to stop' : 'Click to start'}
-              </p>
-            </div>
-            <span className="material-symbols-outlined text-[14px]" style={{ color: agentRunning ? '#34d399' : '#f87171' }}>
-              {agentRunning ? 'stop_circle' : 'play_circle'}
-            </span>
-          </button>
+          {/* divider */}
+          <div style={{ height: 1, background: T.divider, margin: '0 14px 10px' }} />
 
-          {/* Nav label */}
-          <p className="px-3 mb-2 text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: '#1e3048' }}>Main Menu</p>
+          {/* agent toggle */}
+          <div style={{ padding: '0 10px 10px' }}>
+            <button
+              onClick={toggleAgent}
+              disabled={agentToggling}
+              style={{
+                width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 11, cursor: 'pointer',
+                background: agentRunning ? (dark ? 'rgba(16,185,129,0.09)' : 'rgba(16,185,129,0.08)') : (dark ? 'rgba(239,68,68,0.09)' : 'rgba(239,68,68,0.07)'),
+                border: agentRunning ? '1px solid rgba(16,185,129,0.25)' : '1px solid rgba(239,68,68,0.25)',
+                transition: 'all .2s', opacity: agentToggling ? 0.6 : 1,
+              }}
+            >
+              <span style={{ position: 'relative', display: 'flex', width: 8, height: 8, flexShrink: 0 }}>
+                {agentRunning && <span className="rt-ping" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#10b981', opacity: 0.5 }} />}
+                <span style={{ position: 'relative', display: 'block', width: 8, height: 8, borderRadius: '50%', background: agentRunning ? '#10b981' : '#ef4444' }} />
+              </span>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: agentRunning ? '#34d399' : '#f87171', lineHeight: 1.3 }}>
+                  Agent {agentToggling ? 'Switching…' : agentRunning ? 'Online' : 'Offline'}
+                </p>
+                <p style={{ margin: 0, fontSize: 10, marginTop: 1, color: agentRunning ? 'rgba(52,211,153,.55)' : 'rgba(248,113,113,.5)' }}>
+                  {agentRunning ? 'Click to stop' : 'Click to start'}
+                </p>
+              </div>
+              <span className="material-symbols-outlined" style={{ fontSize: 16, color: agentRunning ? '#34d399' : '#f87171' }}>
+                {agentRunning ? 'stop_circle' : 'play_circle'}
+              </span>
+            </button>
+          </div>
 
-          {/* Nav items */}
-          <nav className="flex flex-col gap-0.5 flex-1">
-            {NAV_ITEMS.map(item => {
-              const active = item.to === '/'
-              return (
-                <Link key={item.to} to={item.to}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all"
-                  style={active ? {
-                    background: 'linear-gradient(135deg,rgba(59,130,246,0.18),rgba(99,102,241,0.1))',
-                    border: '1px solid rgba(59,130,246,0.2)',
-                    color: '#fff',
-                  } : {
-                    color: '#4a6580',
-                    border: '1px solid transparent',
-                  }}
-                  onClick={() => setSidebarOpen(false)}>
-                  <span className="material-symbols-outlined text-[17px]"
-                    style={{ color: active ? '#60a5fa' : undefined }}>{item.icon}</span>
-                  {item.label}
-                  {active && <span className="ml-auto size-1.5 rounded-full" style={{ background: '#60a5fa' }} />}
-                </Link>
-              )
-            })}
-          </nav>
+          {/* scrollable section */}
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 20 }}>
+            {/* nav label */}
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', color: T.muted, padding: '0 18px 6px', margin: 0 }}>Main Menu</p>
 
-          {/* Bottom nav */}
-          <div className="pt-3 flex flex-col gap-0.5" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-            <Link to="/settings"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all"
-              style={{ color: '#4a6580' }}
-              onClick={() => setSidebarOpen(false)}>
-              <span className="material-symbols-outlined text-[17px]">settings</span>
+            {/* nav links */}
+            <nav style={{ flex: 1, padding: '0 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {NAV.map(item => {
+                const active = item.to === '/'
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    onClick={closeSidebar}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 11,
+                      padding: '10px 12px', borderRadius: 10,
+                      fontSize: 14, fontWeight: active ? 600 : 500,
+                      color: active ? T.text : T.sub,
+                      background: active
+                        ? (dark ? 'linear-gradient(135deg,rgba(59,130,246,0.18),rgba(99,102,241,0.1))' : 'rgba(59,130,246,0.09)')
+                        : 'transparent',
+                      border: active ? '1px solid rgba(59,130,246,0.25)' : '1px solid transparent',
+                      textDecoration: 'none', transition: 'all .16s',
+                    }}
+                    onMouseEnter={e => { if (!active) { e.currentTarget.style.color = T.text; e.currentTarget.style.background = T.inputBg } }}
+                    onMouseLeave={e => { if (!active) { e.currentTarget.style.color = T.sub; e.currentTarget.style.background = 'transparent' } }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: active ? '#60a5fa' : 'inherit', flexShrink: 0 }}>{item.icon}</span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {active && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#60a5fa', flexShrink: 0, display: 'block' }} />}
+                  </Link>
+                )
+              })}
+            </nav>
+          </div>
+
+          {/* fixed bottom links */}
+          <div style={{ padding: '10px 8px', borderTop: `1px solid ${T.divider}`, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Link
+              to="/settings"
+              onClick={closeSidebar}
+              style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 500, color: T.sub, textDecoration: 'none', border: '1px solid transparent', transition: 'all .16s' }}
+              onMouseEnter={e => { e.currentTarget.style.color = T.text; e.currentTarget.style.background = T.inputBg }}
+              onMouseLeave={e => { e.currentTarget.style.color = T.sub; e.currentTarget.style.background = 'transparent' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>settings</span>
               Settings
             </Link>
-            <button type="button"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left"
-              style={{ color: '#4a6580' }}
-              onClick={() => { setSidebarOpen(false); navigate('/login', { replace: true }) }}>
-              <span className="material-symbols-outlined text-[17px]">logout</span>
+            <button
+              type="button"
+              onClick={() => { closeSidebar(); navigate('/login', { replace: true }) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 12px', borderRadius: 10, fontSize: 14, fontWeight: 500, color: T.sub, background: 'transparent', border: '1px solid transparent', cursor: 'pointer', textAlign: 'left', transition: 'all .16s', width: '100%' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.background = 'rgba(239,68,68,0.07)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = T.sub; e.currentTarget.style.background = 'transparent' }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>logout</span>
               Logout
             </button>
           </div>
+        </aside>
 
-        </div>
-      </aside>
+        {/* ════════════════ MAIN ════════════════ */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', minWidth: 0 }}>
 
-      {/* ════════════════════════════════════
-          MAIN CONTENT
-      ════════════════════════════════════ */}
-      <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden" style={{ background: '#05080f' }}>
+          {/* ── TOPBAR ── */}
+          <header style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '0 16px', height: 56, flexShrink: 0,
+            background: T.headerBg, backdropFilter: 'blur(20px)',
+            borderBottom: `1px solid ${T.headerBorder}`,
+            gap: 12,
+            position: 'relative',
+            zIndex: 50,
+          }}>
 
-        {/* ── TOPBAR ── */}
-        <header className="flex items-center justify-between px-5 py-3 shrink-0"
-          style={{ background: 'rgba(7,12,21,0.85)', borderBottom: '1px solid rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)' }}>
-
-          <div className="flex items-center gap-3">
-            {/* Mobile menu */}
-            <button className="lg:hidden transition-colors" style={{ color: '#4a6580' }}
-              onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
-              <span className="material-symbols-outlined text-[22px]">menu</span>
-            </button>
-
-            {/* Search */}
-            <div className="hidden md:flex items-center gap-2 h-9 px-3 rounded-xl w-72 transition-all"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <span className="material-symbols-outlined text-[15px]" style={{ color: '#2a3f56' }}>search</span>
-              <input className="flex-1 bg-transparent text-[12px] focus:outline-none"
-                style={{ color: '#fff' }}
-                placeholder="Search alerts, hosts, hashes…"
-                onFocus={e => e.target.parentElement.style.borderColor = 'rgba(59,130,246,0.35)'}
-                onBlur={e => e.target.parentElement.style.borderColor = 'rgba(255,255,255,0.06)'}
-              />
-              <kbd className="text-[9px] px-1.5 py-0.5 rounded font-mono hidden xl:inline"
-                style={{ background: 'rgba(255,255,255,0.04)', color: '#2a3f56', border: '1px solid rgba(255,255,255,0.06)' }}>⌘K</kbd>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-
-            {/* Live clock */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg"
-              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <span className="size-1.5 rounded-full animate-pulse" style={{ background: '#10b981' }} />
-              <span className="text-[11px]" style={{ color: '#3a5472' }}><LiveClock /></span>
-            </div>
-
-            {/* Notifications */}
-            <div className="relative" ref={notifRef}>
-              <button onClick={() => setShowNotif(!showNotif)}
-                className="relative flex size-9 items-center justify-center rounded-xl transition-all"
-                style={{ color: '#4a6580', background: showNotif ? 'rgba(255,255,255,0.06)' : 'transparent' }}>
-                <span className="material-symbols-outlined text-[19px]">notifications</span>
-                {recentAlerts.length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 size-2 rounded-full" style={{ background: '#ef4444', boxShadow: '0 0 6px rgba(239,68,68,0.7)' }} />
-                )}
+            {/* left: hamburger + search */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+              <button
+                onClick={() => setSidebarOpen(v => !v)}
+                style={{
+                  width: 36, height: 36, borderRadius: 9,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: sidebarOpen && isDesktop ? T.btnHoverBg : 'transparent',
+                  border: `1px solid ${sidebarOpen && isDesktop ? T.inputBorder : 'transparent'}`,
+                  color: sidebarOpen && isDesktop ? T.text : T.sub,
+                  cursor: 'pointer', transition: 'all .18s',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.color = T.text }}
+                onMouseLeave={e => { if (!(sidebarOpen && isDesktop)) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.sub } }}
+                title={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 22 }}>
+                  {sidebarOpen ? 'menu_open' : 'menu'}
+                </span>
               </button>
 
-              {showNotif && (
-                <div className="absolute right-0 mt-2 w-[380px] rounded-2xl shadow-2xl z-50 overflow-hidden"
-                  style={{ background: '#0a1120', border: '1px solid rgba(255,255,255,0.07)', animation: 'fadeInScale 0.18s ease-out', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}>
-                  <div className="flex items-center justify-between px-4 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[16px]" style={{ color: '#60a5fa' }}>notifications_active</span>
-                      <span className="text-white font-bold text-[13px]">Notifications</span>
-                    </div>
-                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                      style={{ background: recentAlerts.length > 0 ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)', color: recentAlerts.length > 0 ? '#f87171' : '#3a5472' }}>
-                      {recentAlerts.length} NEW
+              <div
+                ref={searchRef}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, height: 36, padding: '0 12px', borderRadius: 10, background: T.inputBg, border: `1px solid ${T.inputBorder}`, maxWidth: 280, flex: 1, transition: 'all .2s' }}
+                onFocus={onSearchFocus}
+                onBlur={onSearchBlur}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 15, color: T.muted, flexShrink: 0 }}>search</span>
+                <input
+                  style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 13, color: T.text, minWidth: 0 }}
+                  placeholder="Search alerts, hosts, hashes…"
+                />
+                <kbd style={{ fontSize: 10, padding: '1px 5px', borderRadius: 5, background: T.inputBg, color: T.muted, border: `1px solid ${T.inputBorder}`, flexShrink: 0 }}>⌘K</kbd>
+              </div>
+            </div>
+
+            {/* right: clock · theme · restart · notif · refresh · profile */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+
+              {/* live clock */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, background: T.inputBg, border: `1px solid ${T.inputBorder}` }}>
+                <span className="rt-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0, display: 'block' }} />
+                <span style={{ fontSize: 12, color: T.sub, userSelect: 'none' }}><LiveClock /></span>
+              </div>
+
+              {/* theme toggle */}
+              <button
+                onClick={() => setDark(v => !v)}
+                title={dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                style={{ width: 36, height: 36, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: dark ? 'rgba(251,191,36,0.1)' : 'rgba(99,102,241,0.1)', border: `1px solid ${dark ? 'rgba(251,191,36,0.25)' : 'rgba(99,102,241,0.25)'}`, color: dark ? '#fbbf24' : '#6366f1', cursor: 'pointer', transition: 'all .2s', flexShrink: 0 }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1) rotate(15deg)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1) rotate(0deg)'}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{dark ? 'light_mode' : 'dark_mode'}</span>
+              </button>
+
+              {/* restart */}
+              <button
+                onClick={() => setShowRestart(true)}
+                title="Restart agent"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 8, background: 'rgba(249,115,22,0.09)', border: '1px solid rgba(249,115,22,0.25)', color: '#fb923c', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all .2s', flexShrink: 0 }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.18)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.45)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(249,115,22,0.09)'; e.currentTarget.style.borderColor = 'rgba(249,115,22,0.25)' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 15 }}>restart_alt</span>
+                Restart
+              </button>
+
+              {/* notifications */}
+              <div ref={notifRef} style={{ position: 'relative', flexShrink: 0 }}>
+                <button
+                  onClick={() => { setShowNotif(v => !v); setShowProfile(false) }}
+                  style={{ position: 'relative', width: 36, height: 36, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: showNotif ? T.btnHoverBg : 'transparent', border: `1px solid ${showNotif ? T.inputBorder : 'transparent'}`, color: T.sub, cursor: 'pointer', transition: 'all .18s' }}
+                  onMouseEnter={e => { if (!showNotif) { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.color = T.text } }}
+                  onMouseLeave={e => { if (!showNotif) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.sub } }}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 20 }}>notifications</span>
+                  {recentAlerts.length > 0 && (
+                    <span style={{ position: 'absolute', top: 5, right: 5, minWidth: 15, height: 15, borderRadius: 99, background: '#ef4444', fontSize: 9, fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', boxShadow: '0 0 6px rgba(239,68,68,0.6)', lineHeight: 1 }}>
+                      {recentAlerts.length > 9 ? '9+' : recentAlerts.length}
                     </span>
-                  </div>
-                  <div className="max-h-[360px] overflow-y-auto">
-                    {recentAlerts.length === 0 ? (
-                      <div className="py-12 flex flex-col items-center gap-2">
-                        <span className="material-symbols-outlined text-3xl" style={{ color: '#1a2b3c' }}>notifications_off</span>
-                        <p className="text-xs" style={{ color: '#2a3f56' }}>No recent alerts</p>
-                      </div>
-                    ) : recentAlerts.map((alert, i) => {
-                      const isR = alert.alert_type === 'ransomware_suspected'
-                      return (
-                        <div key={i} className="flex items-start gap-3 px-4 py-3 transition-all cursor-pointer"
-                          style={{ borderLeft: `2px solid ${isR ? '#ef4444' : '#f59e0b'}`, borderBottom: '1px solid rgba(255,255,255,0.03)' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          <div className="size-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5"
-                            style={{ background: isR ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)' }}>
-                            <span className="material-symbols-outlined text-[14px]" style={{ color: isR ? '#f87171' : '#fbbf24' }}>
-                              {isR ? 'shield' : 'key'}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-white text-[12px] font-semibold">{isR ? 'Ransomware Detected' : 'Honeytoken Accessed'}</span>
-                              <span className="text-[9px] font-mono shrink-0" style={{ color: '#2a3f56' }}>{formatTs(alert.timestamp)}</span>
-                            </div>
-                            <p className="text-[10px] mt-0.5 font-mono" style={{ color: '#3a5472' }}>{alert.host || '—'}{alert.process_name && ` · ${alert.process_name}`}</p>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                  <Link to="/alerts" onClick={() => setShowNotif(false)}
-                    className="flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold uppercase tracking-widest transition-colors"
-                    style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: '#60a5fa' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.06)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    View All Alerts
-                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-                  </Link>
-                </div>
-              )}
-            </div>
-
-            {/* Refresh */}
-            <button onClick={() => window.location.reload()}
-              className="flex size-9 items-center justify-center rounded-xl transition-all"
-              style={{ color: '#4a6580' }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#4a6580'; e.currentTarget.style.background = 'transparent' }}
-              title="Refresh">
-              <span className="material-symbols-outlined text-[19px]">refresh</span>
-            </button>
-
-            {/* Profile avatar */}
-            <div className="size-9 rounded-xl overflow-hidden ml-1 cursor-pointer ring-2 ring-transparent hover:ring-blue-500/40 transition-all"
-              style={{ background: 'linear-gradient(135deg,#1e3a5f,#0f2340)' }}>
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="material-symbols-outlined text-[18px]" style={{ color: '#60a5fa' }}>person</span>
-              </div>
-            </div>
-          </div>
-        </header>
-
-        {/* ── SCROLLABLE BODY ── */}
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.06) transparent' }}>
-
-          {/* Ambient blobs */}
-          <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" style={{ left: '256px' }}>
-            <div className="absolute rounded-full" style={{ top: '-15%', left: '-5%', width: 700, height: 700, background: 'radial-gradient(circle,rgba(59,130,246,0.04) 0%,transparent 70%)', animation: 'float 22s ease-in-out infinite' }} />
-            <div className="absolute rounded-full" style={{ top: '40%', right: '-8%', width: 550, height: 550, background: 'radial-gradient(circle,rgba(99,102,241,0.035) 0%,transparent 70%)', animation: 'float 28s ease-in-out infinite 6s' }} />
-            <div className="absolute rounded-full" style={{ bottom: '-10%', left: '35%', width: 450, height: 450, background: 'radial-gradient(circle,rgba(16,185,129,0.025) 0%,transparent 70%)', animation: 'float 24s ease-in-out infinite 12s' }} />
-          </div>
-
-          <div className="relative z-10 p-5 md:p-7 lg:p-10 max-w-[1280px] mx-auto flex flex-col gap-7">
-
-            {/* ════ HERO HEADER ════ */}
-            <div className="flex flex-wrap items-start justify-between gap-5">
-              <div>
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="h-px w-10 rounded" style={{ background: 'linear-gradient(90deg,#3b82f6,transparent)' }} />
-                  <span className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: 'rgba(96,165,250,0.7)' }}>Security Operations Center</span>
-                </div>
-                <h1 className="font-black tracking-tight leading-none mb-3" style={{ fontSize: 'clamp(2rem,4vw,3.2rem)', background: 'linear-gradient(135deg,#e2e8f0 0%,#93c5fd 50%,#818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                  Dashboard Overview
-                </h1>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="flex items-center gap-1.5 text-[12px]" style={{ color: '#4a6580' }}>
-                    <span className="material-symbols-outlined text-[14px]" style={{ color: '#60a5fa' }}>computer</span>
-                    <span className="text-white/70 font-semibold">{hostMap.length}</span> endpoint{hostMap.length !== 1 ? 's' : ''} monitored
-                  </span>
-                  <span style={{ color: '#1e3048' }}>·</span>
-                  <span className="flex items-center gap-1.5 text-[12px]" style={{ color: '#4a6580' }}>
-                    <span className="material-symbols-outlined text-[14px]" style={{ color: alerts.length > 0 ? '#f87171' : '#60a5fa' }}>notifications</span>
-                    <span className="text-white/70 font-semibold">{alerts.length}</span> alert{alerts.length !== 1 ? 's' : ''} today
-                  </span>
-                  <span style={{ color: '#1e3048' }}>·</span>
-                  <span className={`flex items-center gap-1.5 text-[12px] font-medium ${scoreLabelCls}`}>
-                    <span className="size-1.5 rounded-full animate-pulse" style={{ background: scoreColor }} />
-                    {scoreLabel}
-                  </span>
-                </div>
-              </div>
-
-              {/* Header actions */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <button className="flex items-center gap-2 h-9 px-4 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95"
-                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#6b8aaa' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#fff' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#6b8aaa' }}>
-                  <span className="material-symbols-outlined text-[15px]">download</span>Export
+                  )}
                 </button>
-                <Link to="/scan" className="flex items-center gap-2 h-9 px-4 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95"
-                  style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)', color: '#fff', boxShadow: '0 4px 20px rgba(59,130,246,0.3)' }}
-                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 28px rgba(59,130,246,0.5)'}
-                  onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(59,130,246,0.3)'}>
-                  <span className="material-symbols-outlined text-[15px]">document_scanner</span>Run Scan
-                </Link>
-              </div>
-            </div>
 
-            {/* ════ KPI CARDS ════ */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* notification dropdown */}
+                {showNotif && (
+                  <div className="rt-fadein" style={{
+                    position: 'absolute', right: 0, top: 'calc(100% + 10px)',
+                    width: 380, borderRadius: 16,
+                    background: T.dropdownBg,
+                    border: `1px solid ${T.divider}`,
+                    boxShadow: T.dropdownShadow,
+                    zIndex: 10000,
+                    overflow: 'hidden',
+                  }}>
+                    {/* header */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 15px 11px', borderBottom: `1px solid ${T.divider}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#60a5fa' }}>notifications_active</span>
+                        <span style={{ color: T.text, fontWeight: 700, fontSize: 14 }}>Notifications</span>
+                        {recentAlerts.length > 0 && (
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 99, background: 'rgba(239,68,68,0.15)', color: '#f87171' }}>
+                            {recentAlerts.length} NEW
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => setShowNotif(false)}
+                        style={{ width: 26, height: 26, borderRadius: 7, background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.sub, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; e.currentTarget.style.color = '#f87171' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.color = T.sub }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>close</span>
+                      </button>
+                    </div>
 
-              {/* Active Threats */}
-              <div className="group relative rounded-2xl p-5 overflow-hidden transition-all duration-500 cursor-default"
-                style={{ background: 'linear-gradient(135deg,rgba(239,68,68,0.08),rgba(10,17,32,0.9))', border: '1px solid rgba(239,68,68,0.12)' }}
-                onMouseEnter={e => { e.currentTarget.style.border = '1px solid rgba(239,68,68,0.3)'; e.currentTarget.style.boxShadow = '0 0 40px rgba(239,68,68,0.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(239,68,68,0.12)'; e.currentTarget.style.boxShadow = 'none' }}>
-                <div className="absolute -right-6 -bottom-6 size-28 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'radial-gradient(circle,rgba(239,68,68,0.12),transparent)' }} />
-                <div className="flex items-start justify-between mb-4">
-                  <div className="size-11 rounded-xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                    <span className="material-symbols-outlined text-[22px]" style={{ color: '#f87171' }}>gpp_bad</span>
-                  </div>
-                  {ransomwareAlerts.length > 0 && (
-                    <span className="flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171' }}>
-                      <span className="size-1.5 rounded-full animate-pulse" style={{ background: '#ef4444' }} />LIVE
-                    </span>
-                  )}
-                </div>
-                <p className="text-[42px] font-black tracking-tighter leading-none mb-1.5 tabular-nums" style={{ color: ransomwareAlerts.length > 0 ? '#f87171' : '#fff' }}>
-                  {loading ? '—' : ransomwareAlerts.length}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: '#3a5472' }}>Active Threats</p>
-                <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg,rgba(239,68,68,0.3),transparent)' }} />
-              </div>
+                    {/* list */}
+                    <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                      {recentAlerts.length === 0 ? (
+                        <div style={{ padding: '36px 20px', textAlign: 'center' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 30, color: T.muted, display: 'block', marginBottom: 8 }}>notifications_off</span>
+                          <p style={{ color: T.sub, fontSize: 12, margin: 0 }}>No recent alerts</p>
+                        </div>
+                      ) : recentAlerts.map((alert, i) => {
+                        const isR = alert.alert_type === 'ransomware_suspected'
+                        return (
+                          <Link
+                            key={i}
+                            to="/alerts"
+                            onClick={() => setShowNotif(false)}
+                            style={{ display: 'flex', alignItems: 'flex-start', gap: 11, padding: '11px 15px', borderBottom: `1px solid ${T.divider}`, borderLeft: `3px solid ${isR ? '#ef4444' : '#f59e0b'}`, textDecoration: 'none', transition: 'background .15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = T.rowHover}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <div style={{ width: 30, height: 30, borderRadius: 8, background: isR ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: 14, color: isR ? '#f87171' : '#fbbf24' }}>{isR ? 'shield' : 'key'}</span>
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                                <span style={{ color: T.text, fontSize: 12, fontWeight: 600 }}>{isR ? 'Ransomware Detected' : 'Honeytoken Accessed'}</span>
+                                <span style={{ color: T.muted, fontSize: 10, fontFamily: 'monospace', flexShrink: 0 }}>{formatTs(alert.timestamp)}</span>
+                              </div>
+                              <p style={{ color: T.sub, fontSize: 11, margin: '2px 0 0', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {alert.host || '—'}{alert.process_name && ` · ${alert.process_name}`}
+                              </p>
+                            </div>
+                          </Link>
+                        )
+                      })}
+                    </div>
 
-              {/* Honeytoken Hits */}
-              <div className="group relative rounded-2xl p-5 overflow-hidden transition-all duration-500 cursor-default"
-                style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(10,17,32,0.9))', border: '1px solid rgba(245,158,11,0.12)' }}
-                onMouseEnter={e => { e.currentTarget.style.border = '1px solid rgba(245,158,11,0.3)'; e.currentTarget.style.boxShadow = '0 0 40px rgba(245,158,11,0.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(245,158,11,0.12)'; e.currentTarget.style.boxShadow = 'none' }}>
-                <div className="absolute -right-6 -bottom-6 size-28 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'radial-gradient(circle,rgba(245,158,11,0.12),transparent)' }} />
-                <div className="flex items-start justify-between mb-4">
-                  <div className="size-11 rounded-xl flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                    <span className="material-symbols-outlined text-[22px]" style={{ color: '#fbbf24' }}>pest_control</span>
-                  </div>
-                  {honeytokenAlerts.length > 0 && (
-                    <span className="flex items-center gap-1 text-[10px] font-bold" style={{ color: '#fbbf24' }}>
-                      <span className="material-symbols-outlined text-[13px]">trending_up</span>+{honeytokenAlerts.length}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[42px] font-black tracking-tighter leading-none mb-1.5 tabular-nums" style={{ color: honeytokenAlerts.length > 0 ? '#fbbf24' : '#fff' }}>
-                  {loading ? '—' : honeytokenAlerts.length}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: '#3a5472' }}>Honeytoken Hits</p>
-                <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg,rgba(245,158,11,0.3),transparent)' }} />
-              </div>
-
-              {/* Total Alerts */}
-              <div className="group relative rounded-2xl p-5 overflow-hidden transition-all duration-500 cursor-default"
-                style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.08),rgba(10,17,32,0.9))', border: '1px solid rgba(59,130,246,0.12)' }}
-                onMouseEnter={e => { e.currentTarget.style.border = '1px solid rgba(59,130,246,0.3)'; e.currentTarget.style.boxShadow = '0 0 40px rgba(59,130,246,0.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(59,130,246,0.12)'; e.currentTarget.style.boxShadow = 'none' }}>
-                <div className="absolute -right-6 -bottom-6 size-28 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'radial-gradient(circle,rgba(59,130,246,0.12),transparent)' }} />
-                <div className="flex items-start justify-between mb-4">
-                  <div className="size-11 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                    <span className="material-symbols-outlined text-[22px]" style={{ color: '#60a5fa' }}>monitoring</span>
-                  </div>
-                </div>
-                <p className="text-[42px] font-black tracking-tighter leading-none mb-1.5 tabular-nums" style={{ color: alerts.length > 0 ? '#93c5fd' : '#fff' }}>
-                  {loading ? '—' : alerts.length}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: '#3a5472' }}>Total Alerts</p>
-                <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg,rgba(59,130,246,0.3),transparent)' }} />
-              </div>
-
-              {/* Security Score */}
-              <div className="group relative rounded-2xl p-5 overflow-hidden transition-all duration-500 cursor-default"
-                style={{ background: `linear-gradient(135deg,${scoreColor}14,rgba(10,17,32,0.9))`, border: `1px solid ${scoreColor}20` }}
-                onMouseEnter={e => { e.currentTarget.style.border = `1px solid ${scoreColor}45`; e.currentTarget.style.boxShadow = `0 0 40px ${scoreColor}12` }}
-                onMouseLeave={e => { e.currentTarget.style.border = `1px solid ${scoreColor}20`; e.currentTarget.style.boxShadow = 'none' }}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="size-11 rounded-xl flex items-center justify-center" style={{ background: `${scoreColor}18`, border: `1px solid ${scoreColor}20` }}>
-                    <span className="material-symbols-outlined text-[22px]" style={{ color: scoreColor }}>verified_user</span>
-                  </div>
-                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${scoreColor}18`, color: scoreColor }}>
-                    {scoreLabel}
-                  </span>
-                </div>
-                <div className="flex items-end gap-2 mb-1.5">
-                  <p className="text-[42px] font-black tracking-tighter leading-none tabular-nums" style={{ color: scoreColor }}>{securityScore}</p>
-                  <p className="text-[13px] font-bold mb-2" style={{ color: `${scoreColor}80` }}>/100</p>
-                </div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: '#3a5472' }}>Security Score</p>
-                <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${securityScore}%`, background: `linear-gradient(90deg,${scoreColor},${scoreColorAlt})`, boxShadow: `0 0 10px ${scoreColor}60` }} />
-                </div>
-              </div>
-            </div>
-
-            {/* ════ QUICK ACTIONS ════ */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] mb-3" style={{ color: '#2a3f56' }}>Quick Actions</p>
-              <div className="flex flex-wrap gap-2">
-                {QUICK_ACTIONS.map(a => {
-                  const c = COLOR_MAP[a.color]
-                  return (
-                    <Link key={a.to} to={a.to}
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-95"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#5a7a9a' }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#5a7a9a' }}>
-                      <span className={`material-symbols-outlined text-[15px] ${c.text}`}>{a.icon}</span>
-                      {a.label}
+                    {/* footer */}
+                    <Link
+                      to="/alerts"
+                      onClick={() => setShowNotif(false)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '11px', borderTop: `1px solid ${T.divider}`, color: '#60a5fa', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', textDecoration: 'none', transition: 'background .15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = T.rowHover}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      View All Alerts <span className="material-symbols-outlined" style={{ fontSize: 13 }}>arrow_forward</span>
                     </Link>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* ════ CHART + LIVE FEED ════ */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-
-              {/* ── Threat Detection Chart ── */}
-              <div className="xl:col-span-2 flex flex-col rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                      <span className="material-symbols-outlined text-[17px]" style={{ color: '#60a5fa' }}>trending_up</span>
-                    </div>
-                    <div>
-                      <h3 className="text-white font-bold text-[14px] leading-tight">Threat Detection Velocity</h3>
-                      <p className="text-[10px]" style={{ color: '#3a5472' }}>24-hour event timeline</p>
-                    </div>
                   </div>
-                  <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    {['1H','6H','24H','7D'].map((t, i) => (
-                      <button key={t} className="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all"
-                        style={ i === 2 ? { background: 'rgba(59,130,246,0.2)', color: '#60a5fa' } : { color: '#3a5472' }}>
-                        {t}
+                )}
+              </div>
+
+              {/* refresh */}
+              <button
+                onClick={() => window.location.reload()}
+                title="Refresh"
+                style={iconBtn()}
+                onMouseEnter={e => { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.color = T.text; e.currentTarget.style.borderColor = T.inputBorder }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.sub; e.currentTarget.style.borderColor = 'transparent' }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 19 }}>refresh</span>
+              </button>
+
+              {/* profile */}
+              <div ref={profileRef} style={{ position: 'relative', flexShrink: 0 }}>
+                <button
+                  onClick={() => { setShowProfile(v => !v); setShowNotif(false) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '4px 10px 4px 4px', borderRadius: 10, background: showProfile ? T.btnHoverBg : T.inputBg, border: `1px solid ${showProfile ? 'rgba(96,165,250,0.4)' : T.inputBorder}`, cursor: 'pointer', transition: 'all .18s' }}
+                  onMouseEnter={e => { if (!showProfile) { e.currentTarget.style.background = T.btnHoverBg; e.currentTarget.style.borderColor = T.inputBorder } }}
+                  onMouseLeave={e => { if (!showProfile) { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.borderColor = T.inputBorder } }}
+                >
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg,#1e40af,#3730a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#93c5fd' }}>person</span>
+                  </div>
+                  <div style={{ textAlign: 'left' }}>
+                    <p style={{ color: T.text, fontSize: 12, fontWeight: 600, lineHeight: 1.3, margin: 0 }}>Admin</p>
+                    <p style={{ color: T.sub, fontSize: 10, margin: 0 }}>SOC Lead</p>
+                  </div>
+                  <span className="material-symbols-outlined" style={{ fontSize: 15, color: T.sub, transition: 'transform .2s', transform: showProfile ? 'rotate(180deg)' : 'rotate(0deg)' }}>expand_more</span>
+                </button>
+
+                {/* profile dropdown */}
+                {showProfile && (
+                  <div className="rt-fadein" style={{
+                    position: 'absolute', right: 0, top: 'calc(100% + 10px)',
+                    width: 240, borderRadius: 16,
+                    background: T.dropdownBg,
+                    border: `1px solid ${T.divider}`,
+                    boxShadow: T.dropdownShadow,
+                    zIndex: 10000,
+                    overflow: 'hidden',
+                  }}>
+                    {/* user info */}
+                    <div style={{ padding: '13px 15px 11px', borderBottom: `1px solid ${T.divider}` }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: 'linear-gradient(135deg,#1e40af,#3730a3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 19, color: '#93c5fd' }}>person</span>
+                      </div>
+                      <p style={{ color: T.text, fontSize: 13, fontWeight: 700, margin: '0 0 2px' }}>Admin Console</p>
+                      <p style={{ color: T.sub, fontSize: 11, margin: 0 }}>admin@ransomtrap.local</p>
+                    </div>
+
+                    {/* menu items */}
+                    {[
+                      { icon: 'manage_accounts', label: 'My Profile', fn: () => setShowProfile(false) },
+                      { icon: 'group', label: 'User Management', fn: () => { setShowProfile(false); navigate('/users') } },
+                      { icon: 'settings', label: 'Settings', fn: () => { setShowProfile(false); navigate('/settings') } },
+                    ].map(item => (
+                      <button
+                        key={item.label}
+                        onClick={item.fn}
+                        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 15px', background: 'transparent', border: 'none', color: T.sub, fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all .15s', textAlign: 'left' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = T.rowHover; e.currentTarget.style.color = T.text }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.sub }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{item.icon}</span>
+                        {item.label}
                       </button>
                     ))}
+
+                    <div style={{ height: 1, background: T.divider }} />
+
+                    <button
+                      onClick={() => { setShowProfile(false); navigate('/login', { replace: true }) }}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 15px', background: 'transparent', border: 'none', color: '#f87171', fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all .15s', textAlign: 'left' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.08)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 17 }}>logout</span>
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+
+          {/* ── BODY ── */}
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+
+            {/* ambient blobs */}
+            <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0, overflow: 'hidden' }}>
+              <div className="rt-float" style={{ position: 'absolute', top: '-10%', left: '10%', width: 500, height: 500, borderRadius: '50%', background: `radial-gradient(circle,${dark ? 'rgba(59,130,246,0.04)' : 'rgba(59,130,246,0.06)'} 0%,transparent 70%)` }} />
+              <div className="rt-float" style={{ position: 'absolute', bottom: '5%', right: '-5%', width: 450, height: 450, borderRadius: '50%', background: `radial-gradient(circle,${dark ? 'rgba(99,102,241,0.03)' : 'rgba(99,102,241,0.05)'} 0%,transparent 70%)`, animationDelay: '3s' }} />
+            </div>
+
+            <div style={{ position: 'relative', zIndex: 1, padding: '24px 24px 40px', maxWidth: 1260, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
+
+              {/* ── PAGE HEADER ── */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <div style={{ height: 1, width: 28, background: 'linear-gradient(90deg,#3b82f6,transparent)' }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'rgba(96,165,250,0.8)' }}>Security Operations Center</span>
+                  </div>
+                  <h1 style={{ fontSize: 'clamp(1.6rem,2.8vw,2.5rem)', fontWeight: 900, letterSpacing: '-0.4px', margin: '0 0 10px', background: dark ? 'linear-gradient(135deg,#e2e8f0 0%,#93c5fd 55%,#818cf8 100%)' : 'linear-gradient(135deg,#0f172a 0%,#1e40af 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', lineHeight: 1.1 }}>
+                    Dashboard Overview
+                  </h1>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: T.sub }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#60a5fa' }}>computer</span>
+                      <strong style={{ color: T.text }}>{hostMap.length}</strong> endpoint{hostMap.length !== 1 ? 's' : ''}
+                    </span>
+                    <span style={{ color: T.muted }}>·</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, color: T.sub }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 14, color: alerts.length > 0 ? '#f87171' : '#60a5fa' }}>notifications</span>
+                      <strong style={{ color: T.text }}>{alerts.length}</strong> alert{alerts.length !== 1 ? 's' : ''} today
+                    </span>
+                    <span style={{ color: T.muted }}>·</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: sColor }}>
+                      <span className="rt-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: sColor, display: 'block' }} />
+                      {sLabel}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', borderRadius: 9, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.sub, cursor: 'pointer', transition: 'all .18s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = T.btnHoverBg; e.currentTarget.style.color = T.text }}
+                    onMouseLeave={e => { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.color = T.sub }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>download</span>Export
+                  </button>
+                  <Link
+                    to="/scan"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, height: 36, padding: '0 14px', borderRadius: 9, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'linear-gradient(135deg,#3b82f6,#6366f1)', color: '#fff', textDecoration: 'none', boxShadow: '0 4px 16px rgba(59,130,246,0.3)', transition: 'box-shadow .2s' }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 22px rgba(59,130,246,0.5)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.3)'}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>document_scanner</span>Run Scan
+                  </Link>
+                </div>
+              </div>
+
+              {/* ── KPI CARDS ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 14 }}>
+                <KpiCard
+                  icon="gpp_bad" iconColor="#f87171" accentColor="#ef4444"
+                  label="Active Threats"
+                  value={loading ? '—' : ransomAlerts.length}
+                  valueColor={ransomAlerts.length > 0 ? '#f87171' : T.text}
+                  badge={ransomAlerts.length > 0 ? { text: 'LIVE', dot: true, bg: 'rgba(239,68,68,0.14)', color: '#f87171' } : null}
+                />
+                <KpiCard
+                  icon="pest_control" iconColor="#fbbf24" accentColor="#f59e0b"
+                  label="Honeytoken Hits"
+                  value={loading ? '—' : honeyAlerts.length}
+                  valueColor={honeyAlerts.length > 0 ? '#fbbf24' : T.text}
+                  badge={honeyAlerts.length > 0 ? { text: `+${honeyAlerts.length}`, bg: 'transparent', color: '#fbbf24' } : null}
+                />
+                <KpiCard
+                  icon="monitoring" iconColor="#60a5fa" accentColor="#3b82f6"
+                  label="Total Alerts"
+                  value={loading ? '—' : alerts.length}
+                  valueColor={alerts.length > 0 ? '#93c5fd' : T.text}
+                />
+                {/* security score card */}
+                <div
+                  style={{ borderRadius: 14, padding: '18px 20px', background: dark ? `linear-gradient(135deg,${sColor}10,rgba(8,16,30,0.95))` : `linear-gradient(135deg,${sColor}08,#ffffff)`, border: `1px solid ${sColor}25`, transition: 'all .25s', cursor: 'default' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = `${sColor}50`; e.currentTarget.style.boxShadow = `0 0 28px ${sColor}14` }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = `${sColor}25`; e.currentTarget.style.boxShadow = 'none' }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: `${sColor}18`, border: `1px solid ${sColor}28`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 20, color: sColor }}>verified_user</span>
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 99, background: `${sColor}18`, color: sColor }}>{sLabel}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, marginBottom: 5 }}>
+                    <span style={{ fontSize: 40, fontWeight: 900, letterSpacing: '-1.5px', color: sColor, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{secScore}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, marginBottom: 5, color: `${sColor}80` }}>/100</span>
+                  </div>
+                  <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: T.sub, marginBottom: 10 }}>Security Score</div>
+                  <div style={{ height: 4, borderRadius: 99, background: dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 99, width: `${secScore}%`, background: `linear-gradient(90deg,${sColor},${sColorB})`, boxShadow: `0 0 8px ${sColor}50`, transition: 'width 1s ease' }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── QUICK ACTIONS ── */}
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', color: T.muted, margin: '0 0 10px' }}>Quick Actions</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {QUICK.map(a => (
+                    <Link
+                      key={a.to}
+                      to={a.to}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, fontSize: 13, fontWeight: 500, color: T.sub, background: T.inputBg, border: `1px solid ${T.inputBorder}`, textDecoration: 'none', transition: 'all .18s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = T.btnHoverBg; e.currentTarget.style.borderColor = dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.16)'; e.currentTarget.style.color = T.text }}
+                      onMouseLeave={e => { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.borderColor = T.inputBorder; e.currentTarget.style.color = T.sub }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 15, color: a.c }}>{a.icon}</span>
+                      {a.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── CHART + LIVE FEED ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
+
+                {/* chart */}
+                <div style={{ borderRadius: 14, background: T.cardBg, border: `1px solid ${T.cardBorder}`, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 18px', borderBottom: `1px solid ${T.divider}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#60a5fa' }}>trending_up</span>
+                      </div>
+                      <div>
+                        <p style={{ color: T.text, fontWeight: 700, fontSize: 14, margin: 0, lineHeight: 1.3 }}>Threat Detection Velocity</p>
+                        <p style={{ color: T.sub, fontSize: 11, margin: 0 }}>24-hour event timeline</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 8, background: T.inputBg, border: `1px solid ${T.inputBorder}` }}>
+                      {['1H', '6H', '24H', '7D'].map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setChartRange(t)}
+                          style={{
+                            padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer', transition: 'all .18s',
+                            background: chartRange === t ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'transparent',
+                            color: chartRange === t ? '#fff' : T.sub,
+                            boxShadow: chartRange === t ? '0 2px 8px rgba(59,130,246,0.3)' : 'none'
+                          }}
+                        >{t}</button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '10px 18px', borderBottom: `1px solid ${T.divider}` }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.sub }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#3b82f6', display: 'block' }} />Events</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.sub }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#ef4444', display: 'block' }} />Critical</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, color: T.sub }}>Peak: <strong style={{ color: T.text }}>{maxB}</strong></span>
+                    <span style={{ fontSize: 11, color: T.sub }}>Avg: <strong style={{ color: '#60a5fa' }}>{avgB}</strong></span>
+                  </div>
+                  <div style={{ position: 'relative', height: 190, padding: '14px 18px 0' }}>
+                    <div style={{ position: 'absolute', left: 44, right: 18, top: 14, bottom: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none' }}>
+                      {[100, 75, 50, 25, 0].map(v => (
+                        <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 4, height: 0 }}>
+                          <span style={{ fontSize: 9, fontFamily: 'monospace', color: T.muted, width: 18, textAlign: 'right', flexShrink: 0 }}>{v}</span>
+                          <div style={{ flex: 1, borderBottom: `1px solid ${T.divider}` }} />
+                        </div>
+                      ))}
+                    </div>
+                    <svg style={{ position: 'absolute', left: 44, right: 18, top: 14, bottom: 0, width: 'calc(100% - 62px)', height: 'calc(100% - 14px)' }} preserveAspectRatio="none" viewBox="0 0 500 100">
+                      <defs>
+                        <linearGradient id="chAG" x1="0" x2="0" y1="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.22" />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                        </linearGradient>
+                        <linearGradient id="chLG" x1="0" x2="1" y1="0" y2="0">
+                          <stop offset="0%" stopColor="#3b82f6" />
+                          <stop offset="50%" stopColor="#6366f1" />
+                          <stop offset="100%" stopColor="#8b5cf6" />
+                        </linearGradient>
+                        <filter id="chGW">
+                          <feGaussianBlur stdDeviation="2" result="b" />
+                          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+                        </filter>
+                      </defs>
+                      <path d={chartFill} fill="url(#chAG)" />
+                      <path d={chartPath} fill="none" stroke="url(#chLG)" strokeWidth="2" strokeLinecap="round" filter="url(#chGW)" />
+                    </svg>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 44px 14px' }}>
+                    {buckets.filter((_, i) => i % (chartRange === '7D' ? 3 : 2) === 0 || i === buckets.length - 1).map(b => (
+                      <span key={b.label} style={{ fontSize: 9, fontFamily: 'monospace', color: b.label === 'NOW' ? '#60a5fa' : T.muted, fontWeight: b.label === 'NOW' ? 700 : 400 }}>{b.label}</span>
+                    ))}
                   </div>
                 </div>
 
-                {/* Legend */}
-                <div className="flex items-center gap-5 px-6 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                  <span className="flex items-center gap-1.5 text-[10px]" style={{ color: '#4a6580' }}>
-                    <span className="size-2 rounded-full" style={{ background: '#3b82f6' }} />Events
-                  </span>
-                  <span className="flex items-center gap-1.5 text-[10px]" style={{ color: '#4a6580' }}>
-                    <span className="size-2 rounded-full" style={{ background: '#ef4444' }} />Critical
-                  </span>
-                  <span className="ml-auto text-[10px]" style={{ color: '#2a3f56' }}>
-                    Peak: <span className="font-bold" style={{ color: '#fff' }}>94</span>
-                  </span>
-                  <span className="text-[10px]" style={{ color: '#2a3f56' }}>
-                    Avg: <span className="font-bold" style={{ color: '#60a5fa' }}>47</span>
-                  </span>
+                {/* live feed */}
+                <div style={{ borderRadius: 14, background: T.cardBg, border: `1px solid ${T.cardBorder}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 16px', borderBottom: `1px solid ${T.divider}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#f87171' }}>cell_tower</span>
+                      </div>
+                      <div>
+                        <p style={{ color: T.text, fontWeight: 700, fontSize: 14, margin: 0, lineHeight: 1.3 }}>Live Feed</p>
+                        <p style={{ color: T.sub, fontSize: 11, margin: 0 }}>Real-time events</p>
+                      </div>
+                    </div>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: '#f87171' }}>
+                      <span style={{ position: 'relative', display: 'flex', width: 7, height: 7, flexShrink: 0 }}>
+                        <span className="rt-ping" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#ef4444', opacity: 0.7 }} />
+                        <span style={{ position: 'relative', display: 'block', width: 7, height: 7, borderRadius: '50%', background: '#ef4444' }} />
+                      </span>
+                      Live
+                    </span>
+                  </div>
+                  <div style={{ flex: 1, overflowY: 'auto', maxHeight: 290 }}>
+                    {loading && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '44px 20px', gap: 10 }}>
+                        <span className="material-symbols-outlined rt-spin" style={{ fontSize: 22, color: '#60a5fa' }}>progress_activity</span>
+                        <p style={{ color: T.sub, fontSize: 12, margin: 0 }}>Connecting…</p>
+                      </div>
+                    )}
+                    {!loading && recentAlerts.length === 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '44px 20px', gap: 10 }}>
+                        <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 22, color: 'rgba(16,185,129,0.65)' }}>verified_user</span>
+                        </div>
+                        <p style={{ color: T.sub, fontSize: 13, fontWeight: 600, margin: 0 }}>All Clear</p>
+                      </div>
+                    )}
+                    {recentAlerts.map((alert, i) => {
+                      const isR = alert.alert_type === 'ransomware_suspected'
+                      return (
+                        <div
+                          key={i}
+                          style={{ display: 'flex', gap: 10, padding: '11px 15px', borderBottom: `1px solid ${T.divider}`, borderLeft: `3px solid ${isR ? '#ef4444' : '#f59e0b'}`, transition: 'background .15s', cursor: 'pointer' }}
+                          onMouseEnter={e => e.currentTarget.style.background = T.rowHover}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: isR ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 15, color: isR ? '#f87171' : '#fbbf24' }}>{isR ? 'bug_report' : 'key'}</span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                              <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: isR ? '#f87171' : '#fbbf24' }}>{isR ? 'Critical' : 'Warning'}</span>
+                              <span style={{ fontSize: 10, fontFamily: 'monospace', color: T.muted }}>{formatTs(alert.timestamp)}</span>
+                            </div>
+                            <p style={{ color: T.text, fontSize: 12, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{isR ? 'Ransomware Suspected' : 'Honeytoken Accessed'}</p>
+                            <p style={{ color: T.sub, fontSize: 11, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{alert.host || '—'}{alert.process_name && ` · ${alert.process_name}`}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <Link
+                    to="/Incidents"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '11px', borderTop: `1px solid ${T.divider}`, color: '#60a5fa', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', textDecoration: 'none', transition: 'background .15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = T.rowHover; e.currentTarget.style.color = '#93c5fd' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#60a5fa' }}
+                  >
+                    View All Incidents <span className="material-symbols-outlined" style={{ fontSize: 13 }}>arrow_forward</span>
+                  </Link>
                 </div>
+              </div>
 
-                {/* Chart area */}
-                <div className="relative px-6 pt-5 pb-2" style={{ height: 220 }}>
-                  {/* Y-axis grid */}
-                  <div className="absolute inset-x-6 inset-y-5 flex flex-col justify-between pointer-events-none">
-                    {[100,75,50,25,0].map(v => (
-                      <div key={v} className="flex items-center gap-2 h-0">
-                        <span className="text-[9px] font-mono w-6 text-right shrink-0" style={{ color: '#1e3048' }}>{v}</span>
-                        <div className="flex-1 border-b" style={{ borderColor: 'rgba(255,255,255,0.03)' }} />
+              {/* ── ALERT ACTIVITY TIMELINE ── */}
+              <div style={{ borderRadius: 14, background: T.cardBg, border: `1px solid ${T.cardBorder}`, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 18px', borderBottom: `1px solid ${T.divider}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#818cf8' }}>bar_chart</span>
+                    </div>
+                    <div>
+                      <p style={{ color: T.text, fontWeight: 700, fontSize: 14, margin: 0 }}>Alert Activity</p>
+                      <p style={{ color: T.sub, fontSize: 11, margin: 0 }}>
+                        {chartRange === '1H'  && 'Last 60 min · 5-min buckets'}
+                        {chartRange === '6H'  && 'Last 6 hours · 30-min buckets'}
+                        {chartRange === '24H' && 'Last 24 hours · 2-hour buckets'}
+                        {chartRange === '7D'  && 'Last 7 days · 12-hour buckets'}
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 14 }}>
+                    <span style={{ fontSize: 12, color: T.sub }}>Total: <strong style={{ color: '#818cf8' }}>{alerts.length}</strong></span>
+                    <span style={{ fontSize: 12, color: T.sub }}>Peak: <strong style={{ color: T.text }}>{maxB}</strong></span>
+                  </div>
+                </div>
+                <div style={{ padding: '18px 18px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 72 }}>
+                    {buckets.map((b, i) => (
+                      <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }} title={`${b.count} alert(s) — ${b.label} ago`}>
+                        <div
+                          style={{ width: '100%', borderRadius: '3px 3px 0 0', height: Math.max(4, (b.count / maxB) * 60) + 'px', background: b.count > 0 ? 'linear-gradient(to top,rgba(59,130,246,0.8),rgba(99,102,241,0.55))' : T.inputBg, boxShadow: b.count > 0 ? '0 0 8px rgba(59,130,246,0.25)' : 'none', transition: 'all .4s', cursor: b.count > 0 ? 'pointer' : 'default' }}
+                          onMouseEnter={e => { if (b.count > 0) e.currentTarget.style.background = 'linear-gradient(to top,rgba(99,102,241,0.95),rgba(139,92,246,0.75))' }}
+                          onMouseLeave={e => { if (b.count > 0) e.currentTarget.style.background = 'linear-gradient(to top,rgba(59,130,246,0.8),rgba(99,102,241,0.55))' }}
+                        />
+                        {i % 3 === 0 && <span style={{ fontSize: 9, fontFamily: 'monospace', color: T.muted }}>{b.label}</span>}
                       </div>
                     ))}
                   </div>
-                  {/* SVG chart */}
-                  <svg className="absolute inset-x-12 inset-y-5 w-[calc(100%-4rem)] h-[calc(100%-1.25rem)]" preserveAspectRatio="none" viewBox="0 0 500 100">
-                    <defs>
-                      <linearGradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.22" />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                      </linearGradient>
-                      <linearGradient id="lineGrad" x1="0" x2="1" y1="0" y2="0">
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="50%" stopColor="#6366f1" />
-                        <stop offset="100%" stopColor="#8b5cf6" />
-                      </linearGradient>
-                      <filter id="glow">
-                        <feGaussianBlur stdDeviation="2.5" result="blur"/>
-                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                      </filter>
-                    </defs>
-                    <path d="M0,78 C15,78 25,42 45,38 C65,34 75,68 100,66 C125,64 135,18 155,15 C175,12 185,58 210,56 C235,54 245,82 265,80 C285,78 295,28 320,26 C345,24 355,48 375,46 C395,44 405,8 425,6 C445,4 455,68 475,66 C490,64 495,42 500,40 V100 H0 Z"
-                      fill="url(#areaGrad)"/>
-                    <path d="M0,78 C15,78 25,42 45,38 C65,34 75,68 100,66 C125,64 135,18 155,15 C175,12 185,58 210,56 C235,54 245,82 265,80 C285,78 295,28 320,26 C345,24 355,48 375,46 C395,44 405,8 425,6 C445,4 455,68 475,66 C490,64 495,42 500,40"
-                      fill="none" stroke="url(#lineGrad)" strokeWidth="2" strokeLinecap="round" filter="url(#glow)"/>
-                    <circle cx="155" cy="15" r="4" fill="#ef4444" stroke="#08101d" strokeWidth="2">
-                      <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite"/>
-                    </circle>
-                    <circle cx="425" cy="6" r="4" fill="#ef4444" stroke="#08101d" strokeWidth="2">
-                      <animate attributeName="r" values="4;6;4" dur="2.4s" repeatCount="indefinite"/>
-                    </circle>
-                  </svg>
-                </div>
-
-                {/* X-axis labels */}
-                <div className="flex justify-between px-12 pb-4 pt-1">
-                  {['00:00','04:00','08:00','12:00','16:00','20:00','NOW'].map(t => (
-                    <span key={t} className="text-[9px] font-mono" style={{ color: t === 'NOW' ? '#60a5fa' : '#1e3048', fontWeight: t === 'NOW' ? 700 : 400 }}>{t}</span>
-                  ))}
                 </div>
               </div>
 
-              {/* ── Live Threat Feed ── */}
-              <div className="flex flex-col rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div className="flex items-center gap-2.5">
-                    <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                      <span className="material-symbols-outlined text-[17px]" style={{ color: '#f87171' }}>cell_tower</span>
+              {/* ── RECENT ALERTS TABLE ── */}
+              <div style={{ borderRadius: 14, background: T.cardBg, border: `1px solid ${T.cardBorder}`, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 18px', borderBottom: `1px solid ${T.divider}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#60a5fa' }}>security</span>
                     </div>
-                    <div>
-                      <h3 className="text-white font-bold text-[14px] leading-tight">Live Feed</h3>
-                      <p className="text-[10px]" style={{ color: '#3a5472' }}>Real-time events</p>
-                    </div>
+                    <p style={{ color: T.text, fontWeight: 700, fontSize: 14, margin: 0 }}>Recent Security Alerts</p>
+                    <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 6, background: T.inputBg, color: T.sub, border: `1px solid ${T.inputBorder}`, fontFamily: 'monospace' }}>{alerts.length}</span>
                   </div>
-                  <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider" style={{ color: '#f87171' }}>
-                    <span className="relative flex size-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#ef4444' }}/>
-                      <span className="relative inline-flex rounded-full size-2" style={{ background: '#ef4444' }}/>
-                    </span>
-                    Live
-                  </span>
-                </div>
-
-                <div className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: 280 }}>
-                  {loading && (
-                    <div className="flex flex-col items-center justify-center py-14 gap-3">
-                      <span className="material-symbols-outlined animate-spin text-[24px]" style={{ color: '#60a5fa' }}>progress_activity</span>
-                      <p className="text-[11px]" style={{ color: '#3a5472' }}>Connecting to agent…</p>
-                    </div>
-                  )}
-                  {!loading && recentAlerts.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-14 gap-3">
-                      <div className="size-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.1)' }}>
-                        <span className="material-symbols-outlined text-[24px]" style={{ color: 'rgba(16,185,129,0.6)' }}>verified_user</span>
-                      </div>
-                      <p className="text-[12px] font-semibold" style={{ color: '#3a5472' }}>All Systems Clear</p>
-                      <p className="text-[10px]" style={{ color: '#1e3048' }}>No threats detected</p>
-                    </div>
-                  )}
-                  {recentAlerts.map((alert, i) => {
-                    const isR = alert.alert_type === 'ransomware_suspected'
-                    return (
-                      <div key={i} className="flex gap-3 px-4 py-3.5 transition-all cursor-pointer"
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', borderLeft: `3px solid ${isR ? '#ef4444' : '#f59e0b'}` }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                        <div className="size-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: isR ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)' }}>
-                          <span className="material-symbols-outlined text-[16px]" style={{ color: isR ? '#f87171' : '#fbbf24' }}>
-                            {isR ? 'bug_report' : 'key'}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-center mb-0.5">
-                            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: isR ? '#f87171' : '#fbbf24' }}>
-                              {isR ? 'Critical' : 'Warning'}
-                            </span>
-                            <span className="text-[9px] font-mono tabular-nums" style={{ color: '#2a3f56' }}>{formatTs(alert.timestamp)}</span>
-                          </div>
-                          <p className="text-white text-[12px] font-semibold truncate leading-tight">
-                            {isR ? 'Ransomware Suspected' : 'Honeytoken Accessed'}
-                          </p>
-                          <p className="text-[10px] truncate mt-0.5" style={{ color: '#3a5472' }}>
-                            {alert.host || '—'}{alert.process_name && ` · ${alert.process_name}`}
-                          </p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <Link to="/Incidents"
-                  className="flex items-center justify-center gap-1.5 py-3 text-[10px] font-bold uppercase tracking-widest transition-all"
-                  style={{ borderTop: '1px solid rgba(255,255,255,0.04)', color: '#60a5fa' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.06)'; e.currentTarget.style.color = '#93c5fd' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#60a5fa' }}>
-                  View All Incidents
-                  <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-                </Link>
-              </div>
-            </div>
-
-            {/* ════ ALERT ACTIVITY TIMELINE ════ */}
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.15)' }}>
-                    <span className="material-symbols-outlined text-[17px]" style={{ color: '#818cf8' }}>bar_chart</span>
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-[14px] leading-tight">Alert Activity</h3>
-                    <p className="text-[10px]" style={{ color: '#3a5472' }}>Last 60 minutes · 5-min buckets</p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      style={{ height: 32, padding: '0 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.sub, cursor: 'pointer', transition: 'all .18s' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = T.btnHoverBg; e.currentTarget.style.color = T.text }}
+                      onMouseLeave={e => { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.color = T.sub }}
+                    >Export</button>
+                    <Link
+                      to="/alerts"
+                      style={{ height: 32, padding: '0 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'linear-gradient(135deg,rgba(59,130,246,0.85),rgba(99,102,241,0.85))', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', transition: 'box-shadow .18s' }}
+                      onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 14px rgba(59,130,246,0.38)'}
+                      onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+                    >View All</Link>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] font-mono" style={{ color: '#3a5472' }}>Total: <span className="font-bold" style={{ color: '#818cf8' }}>{alerts.length}</span></span>
-                  <span className="text-[10px] font-mono" style={{ color: '#3a5472' }}>Peak: <span className="font-bold" style={{ color: '#fff' }}>{maxBucket}</span></span>
-                </div>
-              </div>
-              <div className="px-6 pt-5 pb-4">
-                <div className="flex items-end gap-1.5 h-24">
-                  {timelineBuckets.map((b, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group/bar" title={`${b.count} alert(s) — ${b.label} ago`}>
-                      <div className="w-full rounded-t-sm transition-all duration-500 relative overflow-hidden"
-                        style={{
-                          height: `${Math.max(4, (b.count / maxBucket) * 72)}px`,
-                          background: b.count > 0 ? 'linear-gradient(to top,rgba(59,130,246,0.7),rgba(99,102,241,0.5))' : 'rgba(255,255,255,0.04)',
-                          boxShadow: b.count > 0 ? '0 0 12px rgba(59,130,246,0.25)' : 'none',
-                        }}>
-                        {b.count > 0 && <div className="absolute inset-0 opacity-0 group-hover/bar:opacity-100 transition-opacity" style={{ background: 'linear-gradient(to top,rgba(99,102,241,0.9),rgba(139,92,246,0.7))' }} />}
-                      </div>
-                      {i % 3 === 0 && <span className="text-[8px] font-mono" style={{ color: '#1e3048' }}>{b.label}</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* ════ RECENT ALERTS TABLE ════ */}
-            <div className="rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                <div className="flex items-center gap-3">
-                  <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                    <span className="material-symbols-outlined text-[17px]" style={{ color: '#60a5fa' }}>security</span>
-                  </div>
-                  <div className="flex items-center gap-2.5">
-                    <h3 className="text-white font-bold text-[14px]">Recent Security Alerts</h3>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: '#3a5472', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      {alerts.length}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="h-8 px-3.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#5a7a9a' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#fff' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#5a7a9a' }}>
-                    Export
-                  </button>
-                  <Link to="/alerts" className="h-8 px-3.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95 flex items-center"
-                    style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.8),rgba(99,102,241,0.8))', color: '#fff' }}
-                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.35)'}
-                    onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
-                    View All
-                  </Link>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                      {['Severity','Timestamp','Hostname','Threat Type','Status','Action'].map((h, i) => (
-                        <th key={h} className={`px-6 py-3 text-[9px] font-bold uppercase tracking-[0.15em] ${i === 5 ? 'text-right' : ''}`} style={{ color: '#2a3f56' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {alerts.slice(0, 6).map((a, i) => {
-                      const isR = a.alert_type === 'ransomware_suspected'
-                      return (
-                        <tr key={i} className="transition-colors"
-                          style={{ borderBottom: '1px solid rgba(255,255,255,0.025)' }}
-                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          <td className="px-6 py-3.5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider"
-                              style={{ background: isR ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: isR ? '#f87171' : '#fbbf24', border: `1px solid ${isR ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)'}` }}>
-                              <span className="size-1.5 rounded-full" style={{ background: isR ? '#ef4444' : '#f59e0b' }} />
-                              {isR ? 'Critical' : 'Warning'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-3.5 text-[11px] font-mono tabular-nums" style={{ color: '#4a6580' }}>{formatTs(a.timestamp)}</td>
-                          <td className="px-6 py-3.5">
-                            <span className="text-white font-semibold text-[12px] font-mono">{a.host || '—'}</span>
-                          </td>
-                          <td className="px-6 py-3.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="material-symbols-outlined text-[13px]" style={{ color: isR ? '#f87171' : '#fbbf24' }}>
-                                {isR ? 'bug_report' : 'key'}
-                              </span>
-                              <span className="text-[12px]" style={{ color: '#6b8aaa' }}>{isR ? 'Ransomware' : 'Honeytoken'}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-3.5">
-                            {a.process_killed ? (
-                              <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#34d399' }}>
-                                <span className="material-symbols-outlined text-[14px]">check_circle</span>Blocked
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#fbbf24' }}>
-                                <span className="material-symbols-outlined text-[14px]">visibility</span>Detected
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-3.5 text-right">
-                            <Link to="/Incidents" className="text-[10px] font-bold uppercase tracking-wider transition-all px-2.5 py-1 rounded-lg"
-                              style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)' }}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.18)'; e.currentTarget.style.color = '#93c5fd' }}
-                              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.color = '#60a5fa' }}>
-                              Investigate
-                            </Link>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                    {alerts.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="py-14 text-center">
-                          <div className="flex flex-col items-center gap-3">
-                            <span className="material-symbols-outlined text-[32px]" style={{ color: '#1a2b3c' }}>security</span>
-                            <p className="text-[13px] font-medium" style={{ color: '#2a3f56' }}>No security alerts at this time</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* ════ ACTIVE HOSTS ════ */}
-            {hostMap.length > 0 && (
-              <div className="rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.15)' }}>
-                      <span className="material-symbols-outlined text-[17px]" style={{ color: '#22d3ee' }}>dns</span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <h3 className="text-white font-bold text-[14px]">Active Hosts</h3>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: '#3a5472', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        {hostMap.length}
-                      </span>
-                    </div>
-                  </div>
-                  <Link to="/network" className="text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-1"
-                    style={{ color: '#22d3ee' }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#67e8f9'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#22d3ee'}>
-                    Network View <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
-                  </Link>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                        {['Hostname','Alert Count','Ransomware','Honeytoken','Risk','Action'].map((h, i) => (
-                          <th key={h} className={`px-6 py-3 text-[9px] font-bold uppercase tracking-[0.15em] ${i === 5 ? 'text-right' : ''}`} style={{ color: '#2a3f56' }}>{h}</th>
+                      <tr style={{ borderBottom: `1px solid ${T.divider}` }}>
+                        {['Severity', 'Timestamp', 'Hostname', 'Threat Type', 'Status', 'Action'].map((h, i) => (
+                          <th key={h} style={{ padding: '10px 18px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: T.muted, textAlign: i === 5 ? 'right' : 'left' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {hostMap.map(h => {
-                        const risk = h.ransomware > 2 ? 'Critical' : h.ransomware > 0 ? 'High' : h.honeytoken > 0 ? 'Medium' : 'Low'
-                        const riskColor = risk === 'Critical' ? '#f87171' : risk === 'High' ? '#fb923c' : risk === 'Medium' ? '#fbbf24' : '#34d399'
-                        const riskBg = risk === 'Critical' ? 'rgba(239,68,68,0.1)' : risk === 'High' ? 'rgba(249,115,22,0.1)' : risk === 'Medium' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)'
+                      {alerts.slice(0, 6).map((a, i) => {
+                        const isR = a.alert_type === 'ransomware_suspected'
                         return (
-                          <tr key={h.host} className="transition-colors"
-                            style={{ borderBottom: '1px solid rgba(255,255,255,0.025)' }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                            <td className="px-6 py-3.5">
-                              <div className="flex items-center gap-2.5">
-                                <span className="relative flex size-2">
-                                  {h.ransomware > 0 && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#ef4444' }} />}
-                                  <span className="relative inline-flex rounded-full size-2" style={{ background: h.ransomware > 0 ? '#ef4444' : '#f59e0b' }} />
-                                </span>
-                                <span className="text-white font-semibold text-[12px] font-mono">{h.host}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-3.5">
-                              <span className="font-bold text-[15px] tabular-nums" style={{ color: h.total > 3 ? '#f87171' : h.total > 1 ? '#fbbf24' : '#6b8aaa' }}>{h.total}</span>
-                            </td>
-                            <td className="px-6 py-3.5">
-                              {h.ransomware > 0
-                                ? <span className="font-bold text-[12px]" style={{ color: '#f87171' }}>{h.ransomware}</span>
-                                : <span style={{ color: '#1e3048' }}>—</span>}
-                            </td>
-                            <td className="px-6 py-3.5">
-                              {h.honeytoken > 0
-                                ? <span className="font-bold text-[12px]" style={{ color: '#fbbf24' }}>{h.honeytoken}</span>
-                                : <span style={{ color: '#1e3048' }}>—</span>}
-                            </td>
-                            <td className="px-6 py-3.5">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider"
-                                style={{ background: riskBg, color: riskColor }}>
-                                {risk}
+                          <tr
+                            key={i}
+                            style={{ borderBottom: `1px solid ${T.divider}`, transition: 'background .15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = T.rowHover}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <td style={{ padding: '12px 18px' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 7, fontSize: 10, fontWeight: 800, textTransform: 'uppercase', background: isR ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: isR ? '#f87171' : '#fbbf24', border: `1px solid ${isR ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
+                                <span style={{ width: 5, height: 5, borderRadius: '50%', background: isR ? '#ef4444' : '#f59e0b', display: 'block' }} />
+                                {isR ? 'Critical' : 'Warning'}
                               </span>
                             </td>
-                            <td className="px-6 py-3.5 text-right">
-                              <Link to="/Incidents" className="text-[10px] font-bold uppercase tracking-wider transition-all px-2.5 py-1 rounded-lg"
-                                style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)' }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.18)'; e.currentTarget.style.color = '#93c5fd' }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.color = '#60a5fa' }}>
-                                Investigate
-                              </Link>
+                            <td style={{ padding: '12px 18px', fontSize: 12, fontFamily: 'monospace', color: T.sub }}>{formatTs(a.timestamp)}</td>
+                            <td style={{ padding: '12px 18px', fontSize: 13, fontWeight: 600, color: T.text, fontFamily: 'monospace' }}>{a.host || '—'}</td>
+                            <td style={{ padding: '12px 18px' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                                <span className="material-symbols-outlined" style={{ fontSize: 13, color: isR ? '#f87171' : '#fbbf24' }}>{isR ? 'bug_report' : 'key'}</span>
+                                <span style={{ fontSize: 12, color: T.sub }}>{isR ? 'Ransomware' : 'Honeytoken'}</span>
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px 18px' }}>
+                              {a.process_killed
+                                ? <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#34d399' }}><span className="material-symbols-outlined" style={{ fontSize: 13 }}>check_circle</span>Blocked</span>
+                                : <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#fbbf24' }}><span className="material-symbols-outlined" style={{ fontSize: 13 }}>visibility</span>Detected</span>
+                              }
+                            </td>
+                            <td style={{ padding: '12px 18px', textAlign: 'right' }}>
+                              <Link
+                                to="/Incidents"
+                                style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '3px 9px', borderRadius: 7, background: 'rgba(59,130,246,0.1)', color: '#60a5fa', textDecoration: 'none', transition: 'all .15s' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.22)'; e.currentTarget.style.color = '#93c5fd' }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.color = '#60a5fa' }}
+                              >Investigate</Link>
                             </td>
                           </tr>
                         )
                       })}
+                      {alerts.length === 0 && (
+                        <tr>
+                          <td colSpan={6} style={{ padding: '44px 18px', textAlign: 'center' }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 30, color: T.muted, display: 'block', marginBottom: 8 }}>security</span>
+                            <p style={{ color: T.sub, fontSize: 13, margin: 0 }}>No security alerts at this time</p>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
               </div>
-            )}
 
-            {/* ════ FOOTER ════ */}
-            <div className="flex items-center justify-between py-3 text-[10px]" style={{ borderTop: '1px solid rgba(255,255,255,0.04)', color: '#1e3048' }}>
-              <span>Ransom Trap SOC Dashboard · v1.0.0</span>
-              <span className="flex items-center gap-1.5">
-                <span className="size-1.5 rounded-full" style={{ background: agentRunning ? '#10b981' : '#ef4444' }} />
-                Agent {agentRunning ? 'Online' : 'Offline'}
-              </span>
+              {/* ── ACTIVE HOSTS ── */}
+              {hostMap.length > 0 && (
+                <div style={{ borderRadius: 14, background: T.cardBg, border: `1px solid ${T.cardBorder}`, overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '15px 18px', borderBottom: `1px solid ${T.divider}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#22d3ee' }}>dns</span>
+                      </div>
+                      <p style={{ color: T.text, fontWeight: 700, fontSize: 14, margin: 0 }}>Active Hosts</p>
+                      <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 6, background: T.inputBg, color: T.sub, border: `1px solid ${T.inputBorder}`, fontFamily: 'monospace' }}>{hostMap.length}</span>
+                    </div>
+                    <Link
+                      to="/network"
+                      style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#22d3ee', textDecoration: 'none', transition: 'color .15s' }}
+                      onMouseEnter={e => e.currentTarget.style.color = '#67e8f9'}
+                      onMouseLeave={e => e.currentTarget.style.color = '#22d3ee'}
+                    >
+                      Network View <span className="material-symbols-outlined" style={{ fontSize: 13 }}>arrow_forward</span>
+                    </Link>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: `1px solid ${T.divider}` }}>
+                          {['Hostname', 'Total', 'Ransomware', 'Honeytoken', 'Risk', 'Action'].map((h, i) => (
+                            <th key={h} style={{ padding: '10px 18px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: T.muted, textAlign: i === 5 ? 'right' : 'left' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hostMap.map(h => {
+                          const risk = h.ransom > 2 ? 'Critical' : h.ransom > 0 ? 'High' : h.honey > 0 ? 'Medium' : 'Low'
+                          const rClr = risk === 'Critical' ? '#f87171' : risk === 'High' ? '#fb923c' : risk === 'Medium' ? '#fbbf24' : '#34d399'
+                          const rBg = risk === 'Critical' ? 'rgba(239,68,68,0.1)' : risk === 'High' ? 'rgba(249,115,22,0.1)' : risk === 'Medium' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)'
+                          return (
+                            <tr
+                              key={h.host}
+                              style={{ borderBottom: `1px solid ${T.divider}`, transition: 'background .15s' }}
+                              onMouseEnter={e => e.currentTarget.style.background = T.rowHover}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >
+                              <td style={{ padding: '12px 18px' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ position: 'relative', display: 'flex', width: 8, height: 8, flexShrink: 0 }}>
+                                    {h.ransom > 0 && <span className="rt-ping" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: '#ef4444', opacity: 0.6 }} />}
+                                    <span style={{ position: 'relative', display: 'block', width: 8, height: 8, borderRadius: '50%', background: h.ransom > 0 ? '#ef4444' : '#f59e0b' }} />
+                                  </span>
+                                  <span style={{ color: T.text, fontSize: 13, fontWeight: 600, fontFamily: 'monospace' }}>{h.host}</span>
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 18px', fontSize: 15, fontWeight: 800, color: h.total > 3 ? '#f87171' : h.total > 1 ? '#fbbf24' : T.sub, fontVariantNumeric: 'tabular-nums' }}>{h.total}</td>
+                              <td style={{ padding: '12px 18px', fontSize: 13, fontWeight: 700, color: h.ransom > 0 ? '#f87171' : T.muted }}>{h.ransom > 0 ? h.ransom : '—'}</td>
+                              <td style={{ padding: '12px 18px', fontSize: 13, fontWeight: 700, color: h.honey > 0 ? '#fbbf24' : T.muted }}>{h.honey > 0 ? h.honey : '—'}</td>
+                              <td style={{ padding: '12px 18px' }}>
+                                <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', padding: '3px 9px', borderRadius: 8, background: rBg, color: rClr }}>{risk}</span>
+                              </td>
+                              <td style={{ padding: '12px 18px', textAlign: 'right' }}>
+                                <Link
+                                  to="/Incidents"
+                                  style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '3px 9px', borderRadius: 7, background: 'rgba(59,130,246,0.1)', color: '#60a5fa', textDecoration: 'none', transition: 'all .15s' }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.22)'; e.currentTarget.style.color = '#93c5fd' }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; e.currentTarget.style.color = '#60a5fa' }}
+                                >Investigate</Link>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* ── FOOTER ── */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 12, borderTop: `1px solid ${T.divider}`, fontSize: 11, color: T.muted }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <Logo size={14} />
+                  <span>Ransom Trap SOC · v1.0.0</span>
+                </div>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: agentRunning ? '#10b981' : '#ef4444', display: 'block' }} />
+                  Agent {agentRunning ? 'Online' : 'Offline'}
+                </span>
+              </div>
+
             </div>
-
           </div>
         </div>
-      </main>
-    </div>
+
+        {/* ════════════════ RESTART MODAL ════════════════ */}
+        {showRestart && (
+          <div
+            onClick={e => { if (e.target === e.currentTarget) setShowRestart(false) }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          >
+            <div
+              className="rt-fadein"
+              style={{ width: '100%', maxWidth: 420, borderRadius: 20, background: T.dropdownBg, border: `1px solid ${T.dropdownBorder}`, boxShadow: T.dropdownShadow, overflow: 'hidden' }}
+            >
+              <div style={{ padding: '22px 22px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <div style={{ width: 46, height: 46, borderRadius: 13, background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#fb923c' }}>restart_alt</span>
+                  </div>
+                  <div>
+                    <h3 style={{ color: T.text, fontSize: 17, fontWeight: 800, margin: 0 }}>Restart Agent?</h3>
+                    <p style={{ color: T.sub, fontSize: 12, margin: '3px 0 0' }}>This will restart the monitoring agent</p>
+                  </div>
+                </div>
+                <div style={{ padding: '12px 14px', borderRadius: 11, background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)', display: 'flex', gap: 10, marginBottom: 18, alignItems: 'flex-start' }}>
+                  <span className="material-symbols-outlined" style={{ fontSize: 17, color: '#fb923c', flexShrink: 0, marginTop: 1 }}>warning</span>
+                  <p style={{ color: dark ? '#fdba74' : '#9a3412', fontSize: 12, fontWeight: 500, lineHeight: 1.55, margin: 0 }}>
+                    This will temporarily interrupt real-time monitoring and threat detection. Active detections may be missed during the restart window.
+                  </p>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 9 }}>
+                  <button
+                    onClick={() => setShowRestart(false)}
+                    style={{ padding: '9px 18px', borderRadius: 9, fontSize: 13, fontWeight: 700, background: T.inputBg, border: `1px solid ${T.inputBorder}`, color: T.sub, cursor: 'pointer', transition: 'all .18s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = T.btnHoverBg; e.currentTarget.style.color = T.text }}
+                    onMouseLeave={e => { e.currentTarget.style.background = T.inputBg; e.currentTarget.style.color = T.sub }}
+                  >Cancel</button>
+                  <button
+                    onClick={() => { setShowRestart(false); toggleAgent() }}
+                    style={{ padding: '9px 20px', borderRadius: 9, fontSize: 13, fontWeight: 700, background: 'linear-gradient(135deg,#ea580c,#dc2626)', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(234,88,12,0.35)', transition: 'box-shadow .18s' }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 22px rgba(234,88,12,0.55)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 14px rgba(234,88,12,0.35)'}
+                  >Confirm Restart</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </ThemeCtx.Provider>
   )
 }

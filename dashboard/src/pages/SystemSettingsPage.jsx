@@ -2,380 +2,910 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { fetchConfig, patchConfig } from '../api.js'
 
+/* ══════════════════════════════════════════════════════════
+   TINY REUSABLE COMPONENTS
+══════════════════════════════════════════════════════════ */
+function Toggle({ checked, onChange, color = '#6366f1', disabled = false }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => !disabled && onChange(!checked)}
+      style={{
+        position: 'relative', display: 'inline-flex', alignItems: 'center',
+        width: 50, height: 28, borderRadius: 99, flexShrink: 0,
+        background: checked ? color : 'rgba(255,255,255,0.08)',
+        border: `1.5px solid ${checked ? color : 'rgba(255,255,255,0.1)'}`,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'all .22s', opacity: disabled ? 0.45 : 1,
+        boxShadow: checked ? `0 0 16px ${color}55` : 'none',
+        outline: 'none',
+      }}
+    >
+      <span style={{
+        position: 'absolute', left: checked ? 24 : 3,
+        width: 20, height: 20, borderRadius: '50%', background: '#fff',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+        transition: 'left .22s cubic-bezier(.4,0,.2,1)',
+      }} />
+    </button>
+  )
+}
+
+function Card({ children, style = {} }) {
+  return (
+    <div style={{
+      background: 'linear-gradient(145deg,rgba(255,255,255,0.04),rgba(255,255,255,0.015))',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: 18, overflow: 'hidden',
+      backdropFilter: 'blur(12px)',
+      ...style,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function CardHeader({ icon, iconColor = '#60a5fa', title, subtitle, right }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '20px 26px', borderBottom: '1px solid rgba(255,255,255,0.06)',
+      background: 'rgba(255,255,255,0.02)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <div style={{
+          width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+          background: `${iconColor}1a`, border: `1.5px solid ${iconColor}35`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 0 20px ${iconColor}20`,
+        }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 20, color: iconColor }}>{icon}</span>
+        </div>
+        <div>
+          <p style={{ margin: 0, fontWeight: 800, fontSize: 15, color: '#f1f5f9', letterSpacing: '-0.2px' }}>{title}</p>
+          {subtitle && <p style={{ margin: '3px 0 0', fontSize: 12, color: '#4a6580' }}>{subtitle}</p>}
+        </div>
+      </div>
+      {right && <div>{right}</div>}
+    </div>
+  )
+}
+
+function CardBody({ children, style = {} }) {
+  return <div style={{ padding: '22px 26px', ...style }}>{children}</div>
+}
+
+function Row({ label, desc, children, border = false }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      gap: 20, padding: '16px 0',
+      borderTop: border ? '1px solid rgba(255,255,255,0.055)' : 'none',
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: '#e2e8f0' }}>{label}</p>
+        {desc && <p style={{ margin: '4px 0 0', fontSize: 12, color: '#4a6580', lineHeight: 1.55 }}>{desc}</p>}
+      </div>
+      <div style={{ flexShrink: 0 }}>{children}</div>
+    </div>
+  )
+}
+
+function NumInput({ value, onChange, unit, min, max, w = 88 }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <input
+        type="number" value={value}
+        min={min} max={max}
+        onChange={onChange}
+        style={{
+          width: w, background: 'rgba(255,255,255,0.05)',
+          border: '1.5px solid rgba(255,255,255,0.1)',
+          borderRadius: 10, padding: '8px 12px',
+          fontSize: 14, color: '#e2e8f0', outline: 'none',
+          fontFamily: 'monospace', textAlign: 'center',
+          transition: 'border-color .18s',
+        }}
+        onFocus={e => (e.target.style.borderColor = 'rgba(99,102,241,.55)')}
+        onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,.1)')}
+      />
+      {unit && <span style={{ fontSize: 12, color: '#3a5472', userSelect: 'none', fontWeight: 500 }}>{unit}</span>}
+    </div>
+  )
+}
+
+function Select({ value, onChange, options }) {
+  return (
+    <select
+      value={value} onChange={onChange}
+      style={{
+        background: '#0d1828', border: '1.5px solid rgba(255,255,255,0.1)',
+        borderRadius: 10, padding: '8px 34px 8px 13px',
+        fontSize: 14, color: '#e2e8f0', outline: 'none', cursor: 'pointer',
+        appearance: 'none',
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234a6580' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat', backgroundPosition: 'right 11px center',
+        transition: 'border-color .18s', minWidth: 180,
+      }}
+      onFocus={e => (e.target.style.borderColor = 'rgba(99,102,241,.55)')}
+      onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,.1)')}
+    >
+      {options.map(o => (
+        <option key={o.value ?? o} value={o.value ?? o} style={{ background: '#0d1828' }}>
+          {o.label ?? o}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function TextInput({ value, onChange, placeholder, w = 260 }) {
+  return (
+    <input
+      type="text" value={value} onChange={onChange} placeholder={placeholder}
+      style={{
+        width: w, background: 'rgba(255,255,255,0.05)',
+        border: '1.5px solid rgba(255,255,255,0.1)',
+        borderRadius: 10, padding: '8px 13px',
+        fontSize: 14, color: '#e2e8f0', outline: 'none',
+        transition: 'border-color .18s',
+      }}
+      onFocus={e => (e.target.style.borderColor = 'rgba(99,102,241,.55)')}
+      onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,.1)')}
+    />
+  )
+}
+
+function Badge({ label, color }) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 99,
+      background: `${color}18`, color, border: `1px solid ${color}35`,
+      textTransform: 'uppercase', letterSpacing: '0.1em',
+    }}>{label}</span>
+  )
+}
+
+function InfoBox({ icon = 'info', color = '#60a5fa', children }) {
+  return (
+    <div style={{
+      display: 'flex', gap: 12, padding: '14px 16px',
+      background: `${color}0d`, border: `1px solid ${color}25`,
+      borderRadius: 12, marginTop: 14,
+    }}>
+      <span className="material-symbols-outlined" style={{ fontSize: 18, color, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+      <p style={{ margin: 0, fontSize: 12, color: color === '#f59e0b' ? '#b5803a' : color === '#ef4444' ? '#9a3a3a' : '#3a5472', lineHeight: 1.6 }}>
+        {children}
+      </p>
+    </div>
+  )
+}
+
+/* ══════════════════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════════════════ */
+const TABS = [
+  { id: 'detection',     icon: 'radar',         label: 'Detection'     },
+  { id: 'response',      icon: 'security',      label: 'Response'      },
+  { id: 'notifications', icon: 'notifications', label: 'Notifications' },
+  { id: 'performance',   icon: 'speed',         label: 'Performance'   },
+  { id: 'advanced',      icon: 'build',         label: 'Advanced'      },
+  { id: 'danger',        icon: 'warning',       label: 'Danger Zone'   },
+]
+
+/* ══════════════════════════════════════════════════════════
+   MAIN COMPONENT
+══════════════════════════════════════════════════════════ */
 export default function SystemSettingsPage() {
   const navigate = useNavigate()
-  const [config, setConfig] = useState(null)
+  const [tab, setTab]     = useState('detection')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved]   = useState(false)
+  const [toast, setToast]   = useState(null) // {msg,type}
 
-  const [killEnabled, setKillEnabled] = useState(false)
-  const [emailEnabled, setEmailEnabled] = useState(false)
-  const [telegramEnabled, setTelegramEnabled] = useState(false)
-  const [whatsappEnabled, setWhatsappEnabled] = useState(false)
-  const [toastMsg, setToastMsg] = useState('')
-  
-  // New visual states
-  const [sliderVal, setSliderVal] = useState('0.50')
-  const [calibrationMode, setCalibrationMode] = useState('balanced')
-  const [entropyThreshold, setEntropyThreshold] = useState(7.0)
-  const [timeWindow, setTimeWindow] = useState(5)
+  /* ── config ── */
+  const [killEnabled,        setKillEnabled]        = useState(false)
+  const [folderLock,         setFolderLock]          = useState(true)
+  const [autoQuarantine,     setAutoQuarantine]      = useState(false)
+  const [emailEnabled,       setEmailEnabled]        = useState(false)
+  const [telegramEnabled,    setTelegramEnabled]     = useState(false)
+  const [whatsappEnabled,    setWhatsappEnabled]     = useState(false)
+  const [emailAddr,          setEmailAddr]           = useState('')
+  const [smtpHost,           setSmtpHost]            = useState('smtp.gmail.com')
+  const [smtpPort,           setSmtpPort]            = useState(587)
+  const [telegramToken,      setTelegramToken]       = useState('')
+  const [telegramChat,       setTelegramChat]        = useState('')
+  const [entropyThreshold,   setEntropyThreshold]    = useState(7.0)
+  const [sliderVal,          setSliderVal]           = useState(0.5)
+  const [calibMode,          setCalibMode]           = useState('balanced')
+  const [timeWindow,         setTimeWindow]          = useState(5)
+  const [scanInterval,       setScanInterval]        = useState(30)
+  const [maxThreads,         setMaxThreads]          = useState('auto')
+  const [logLevel,           setLogLevel]            = useState('info')
+  const [retentionDays,      setRetentionDays]       = useState(30)
+  const [alertCooldown,      setAlertCooldown]       = useState(60)
+  const [realTime,           setRealTime]            = useState(true)
+  const [deepScan,           setDeepScan]            = useState(false)
+  const [honeypot,           setHoneypot]            = useState(true)
+  const [adaptiveThresh,     setAdaptiveThresh]      = useState(false)
+  const [procSignatureDB,    setProcSignatureDB]     = useState(true)
+  const [networkIsolation,   setNetworkIsolation]    = useState(false)
+  const [sandbox,            setSandbox]             = useState(false)
+  const [confirmReset,       setConfirmReset]        = useState(false)
 
+  /* ── load ── */
   useEffect(() => {
     fetchConfig().then(cfg => {
-      setConfig(cfg)
       setKillEnabled(cfg.kill_on_detection ?? false)
       setEmailEnabled(cfg.email_enabled ?? false)
       setTelegramEnabled(cfg.telegram_enabled ?? false)
       setWhatsappEnabled(cfg.whatsapp_enabled ?? false)
-      
-      const ethresh = cfg.entropy_threshold || 7.0
-      setEntropyThreshold(ethresh)
+      const et = parseFloat(cfg.entropy_threshold || 7.0)
+      setEntropyThreshold(et)
+      const sv = Math.min(1, Math.max(0, (et - 5) / 3))
+      setSliderVal(sv)
+      setCalibMode(sv < 0.33 ? 'conservative' : sv > 0.66 ? 'aggressive' : 'balanced')
       setTimeWindow(cfg.time_window_seconds || 5)
-      
-      const sVal = Math.min(1, Math.max(0, (ethresh - 5) / 3)).toFixed(2)
-      setSliderVal(sVal)
-      
-      if (sVal < 0.33) setCalibrationMode('conservative')
-      else if (sVal > 0.66) setCalibrationMode('aggressive')
-      else setCalibrationMode('balanced')
-      
-    }).catch(() => { })
+    }).catch(() => {})
   }, [])
+
+  /* ── helpers ── */
+  function showToast(msg, type = 'success') {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3500)
+  }
+
+  function onSlider(e) {
+    const v = parseFloat(e.target.value)
+    setSliderVal(v)
+    setEntropyThreshold(parseFloat((v * 3 + 5).toFixed(1)))
+    setCalibMode(v < 0.33 ? 'conservative' : v > 0.66 ? 'aggressive' : 'balanced')
+  }
+
+  function onPreset(mode) {
+    setCalibMode(mode)
+    const sv = mode === 'conservative' ? 0.15 : mode === 'aggressive' ? 0.85 : 0.5
+    setSliderVal(sv)
+    setEntropyThreshold(parseFloat((sv * 3 + 5).toFixed(1)))
+  }
 
   async function handleToggle(field, value, setter) {
     setter(value)
     try {
       await patchConfig({ [field]: value })
-      setToastMsg(value ? `${field} enabled` : `${field} disabled`)
-      setTimeout(() => setToastMsg(''), 3000)
+      showToast(`${field.replace(/_/g, ' ')} ${value ? 'enabled' : 'disabled'}`)
     } catch {
-      setter(!value) // revert on error
+      setter(!value)
+      showToast('Failed to update setting', 'error')
     }
   }
 
-  function handleCalibrationClick(mode) {
-    setCalibrationMode(mode)
-    let newSVal = '0.50'
-    if (mode === 'conservative') newSVal = '0.15'
-    else if (mode === 'aggressive') newSVal = '0.85'
-    
-    setSliderVal(newSVal)
-    const newThresh = (parseFloat(newSVal) * 3 + 5).toFixed(1)
-    setEntropyThreshold(newThresh)
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await patchConfig({
+        kill_on_detection: killEnabled,
+        email_enabled: emailEnabled,
+        telegram_enabled: telegramEnabled,
+        whatsapp_enabled: whatsappEnabled,
+        entropy_threshold: entropyThreshold,
+        time_window_seconds: timeWindow,
+      })
+      setSaved(true)
+      showToast('Configuration saved successfully')
+      setTimeout(() => setSaved(false), 3000)
+    } catch {
+      showToast('Failed to save configuration', 'error')
+    }
+    setSaving(false)
   }
 
-  function handleSliderChange(e) {
-    const val = e.target.value
-    setSliderVal(val)
-    const newThresh = (parseFloat(val) * 3 + 5).toFixed(1)
-    setEntropyThreshold(newThresh)
-    
-    if (val < 0.33) setCalibrationMode('conservative')
-    else if (val > 0.66) setCalibrationMode('aggressive')
-    else setCalibrationMode('balanced')
+  /* ── preset button ── */
+  function PresetBtn({ mode, color, icon, label, sub }) {
+    const active = calibMode === mode
+    return (
+      <button
+        onClick={() => onPreset(mode)}
+        style={{
+          flex: 1, padding: '20px 16px', borderRadius: 14, cursor: 'pointer',
+          border: `1.5px solid ${active ? color + '55' : 'rgba(255,255,255,0.07)'}`,
+          background: active
+            ? `linear-gradient(145deg,${color}1a,${color}08)`
+            : 'rgba(255,255,255,0.02)',
+          transition: 'all .2s', position: 'relative', overflow: 'hidden',
+          boxShadow: active ? `0 0 28px ${color}20` : 'none',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          outline: 'none',
+        }}
+        onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = `${color}30` } }}
+        onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' } }}
+      >
+        {active && (
+          <div style={{ position: 'absolute', top: 0, right: 0, background: color, color: '#fff', fontSize: 9, fontWeight: 900, padding: '4px 10px', borderRadius: '0 0 0 10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            Active
+          </div>
+        )}
+        <div style={{ width: 46, height: 46, borderRadius: 14, background: `${color}18`, border: `1.5px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow .2s', boxShadow: active ? `0 0 18px ${color}35` : 'none' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 24, color: active ? color : `${color}60`, transition: 'color .2s' }}>{icon}</span>
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 700, color: active ? '#f1f5f9' : '#5a7a9a', letterSpacing: '-0.1px' }}>{label}</span>
+        <span style={{ fontSize: 11, color: active ? `${color}cc` : '#2a3f56' }}>{sub}</span>
+      </button>
+    )
   }
+
+  /* ── resource bar ── */
+  function ResourceBar({ label, pct, color }) {
+    return (
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontSize: 13, color: '#6b8aaa', fontWeight: 500 }}>{label}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: pct > 70 ? '#f87171' : pct > 45 ? '#fbbf24' : '#34d399', fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
+        </div>
+        <div style={{ height: 7, borderRadius: 99, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+          <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: `linear-gradient(90deg,${color},${color}cc)`, boxShadow: `0 0 10px ${color}55`, transition: 'width .6s ease' }} />
+        </div>
+      </div>
+    )
+  }
+
+  /* ═══════════════════════════ RENDER ═══════════════════════════ */
+  const toastColors = { success: { bg: '#071a10', border: 'rgba(16,185,129,0.4)', text: '#34d399', shadow: 'rgba(16,185,129,0.2)', icon: 'check_circle' }, error: { bg: '#1a0808', border: 'rgba(239,68,68,0.4)', text: '#f87171', shadow: 'rgba(239,68,68,0.2)', icon: 'error' }, warning: { bg: '#1a1200', border: 'rgba(245,158,11,0.4)', text: '#fbbf24', shadow: 'rgba(245,158,11,0.2)', icon: 'warning' } }
 
   return (
-    <div className="min-h-screen bg-[#020408] text-white font-sans selection:bg-indigo-500/30 overflow-hidden flex flex-col relative">
-      <style>{`
-        .glass { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-        
-        /* Premium Slider */
-        input[type=range] {
-          -webkit-appearance: none;
-          background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          height: 20px;
-          width: 20px;
-          border-radius: 50%;
-          background: #818cf8;
-          cursor: pointer;
-          margin-top: -8px;
-          box-shadow: 0 0 15px rgba(129, 140, 248, 0.6), inset 0 0 0 4px #020408;
-          transition: transform 0.1s;
-        }
-        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.1); }
-        input[type=range]::-webkit-slider-runnable-track {
-          width: 100%;
-          height: 4px;
-          cursor: pointer;
-          background: linear-gradient(to right, #10b981 0%, #6366f1 50%, #ef4444 100%);
-          border-radius: 2px;
-          opacity: 0.8;
-        }
-        
-        .toggle-checkbox:checked { right: 0; border-color: #6366f1; }
-        .toggle-checkbox:checked + .toggle-label { background-color: #6366f1; }
-      `}</style>
-      
-      {/* BACKGROUND EFFECTS */}
-      <div className="absolute inset-0 pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(99,102,241,0.06)_0%,transparent_70%)]" />
-        <svg className="absolute inset-0 w-full h-full opacity-30">
-          <pattern id="grid-settings" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="0.5" />
-          </pattern>
-          <rect fill="url(#grid-settings)" width="100%" height="100%" />
-        </svg>
-      </div>
+    <div style={{ minHeight: '100vh', background: '#060b13', color: '#f1f5f9', fontFamily: 'Inter,-apple-system,sans-serif', display: 'flex', flexDirection: 'column' }}>
 
-      {/* HEADER */}
-      <header className="flex-none h-14 px-6 flex items-center justify-between border-b border-white/10 bg-[#020408]/80 backdrop-blur-md z-30">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="size-8 rounded-lg bg-white/[0.02] hover:bg-white/[0.07] border border-white/[0.04] text-white/40 hover:text-white transition-all flex items-center justify-center">
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+      {/* ── CSS ── */}
+      <style>{`
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes toastSlide { from{opacity:0;transform:translateX(24px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes modalIn { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
+        input[type=range]{-webkit-appearance:none;background:transparent;width:100%;cursor:pointer}
+        input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:99px;background:linear-gradient(to right,#10b981 0%,#6366f1 50%,#ef4444 100%)}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#818cf8;margin-top:-8px;box-shadow:0 0 0 3px rgba(129,140,248,.22),0 0 14px rgba(129,140,248,.55);transition:transform .15s}
+        input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15)}
+        input[type=range]::-moz-range-track{height:6px;border-radius:99px;background:linear-gradient(to right,#10b981 0%,#6366f1 50%,#ef4444 100%)}
+        input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#818cf8;border:none;box-shadow:0 0 14px rgba(129,140,248,.55)}
+        option{background:#0d1828}
+        ::placeholder{color:#2a3f56}
+        ::-webkit-scrollbar{width:5px;height:5px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:99px}
+        ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.14)}
+        *{box-sizing:border-box}
+      `}</style>
+
+      {/* ══ TOP HEADER ══ */}
+      <header style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 36px', height: 62, flexShrink: 0,
+        background: 'rgba(6,11,19,0.96)', backdropFilter: 'blur(24px)',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+        position: 'sticky', top: 0, zIndex: 50,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <button
+            onClick={() => navigate(-1)}
+            style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#4a6580', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .18s', outline: 'none' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#4a6580' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 19 }}>arrow_back</span>
           </button>
-          <div className="h-6 w-px bg-white/[0.04]" />
-          <div className="flex items-center gap-3">
-            <div className="size-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[18px] text-blue-400">tune</span>
+          <div style={{ width: 1, height: 26, background: 'rgba(255,255,255,0.07)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 11, background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 18px rgba(99,102,241,0.18)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 19, color: '#818cf8' }}>settings</span>
             </div>
             <div>
-              <h1 className="text-[13px] font-bold text-white/90 tracking-wide leading-tight">SYSTEM SETTINGS</h1>
-              <p className="text-[10px] text-white/40 font-medium tracking-widest uppercase">Global Engine Configuration</p>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.3px' }}>System Settings</p>
+              <p style={{ margin: 0, fontSize: 11, color: '#2a3f56', textTransform: 'uppercase', letterSpacing: '0.14em' }}>Ransom Trap · Engine Configuration</p>
             </div>
           </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8, height: 38, padding: '0 20px',
+              borderRadius: 10, cursor: saving ? 'not-allowed' : 'pointer', outline: 'none',
+              background: saved ? 'rgba(16,185,129,0.14)' : 'linear-gradient(135deg,#6366f1,#3b82f6)',
+              border: saved ? '1px solid rgba(16,185,129,0.32)' : '1px solid transparent',
+              color: saved ? '#34d399' : '#fff',
+              fontSize: 13, fontWeight: 700, letterSpacing: '-0.1px',
+              opacity: saving ? 0.7 : 1,
+              boxShadow: saved ? 'none' : '0 4px 18px rgba(99,102,241,0.38)',
+              transition: 'all .28s',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{saved ? 'check_circle' : saving ? 'sync' : 'save'}</span>
+            {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
+          </button>
         </div>
       </header>
 
-      {/* CONTENT */}
-      <main className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col z-10 w-full max-w-[1400px] mx-auto min-h-0 relative relative">
-        <div className="flex flex-col gap-2 mb-8 shrink-0 relative z-20">
-          <h1 className="text-white text-4xl font-black leading-tight tracking-tight drop-shadow-lg">Detection <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">Thresholds</span></h1>
-          <div className="flex items-center gap-2">
-            <div className="relative flex size-2.5">
-              <span className="animate-ping absolute inset-0 rounded-full bg-blue-400 opacity-60" />
-              <span className="relative rounded-full size-2.5 bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.8)]" />
-            </div>
-            <p className="text-blue-400/80 text-[12px] font-bold tracking-widest uppercase shadow-blue-500/20 drop-shadow-sm">Fine-tune Shannon entropy & mitigation responses</p>
-          </div>
-        </div>
+      {/* ══ TAB BAR ══ */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 2,
+        padding: '0 36px',
+        background: 'rgba(6,11,19,0.9)', backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        position: 'sticky', top: 62, zIndex: 40,
+        overflowX: 'auto', flexShrink: 0,
+      }}>
+        {TABS.map(t => {
+          const active = tab === t.id
+          const isDanger = t.id === 'danger'
+          return (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '14px 18px',
+                borderBottom: `2.5px solid ${active ? (isDanger ? '#f87171' : '#818cf8') : 'transparent'}`,
+                background: 'transparent', border: 'none',
+                borderBottom: `2.5px solid ${active ? (isDanger ? '#f87171' : '#818cf8') : 'transparent'}`,
+                color: active ? (isDanger ? '#f87171' : '#c5d9f0') : (isDanger ? '#f87171' : '#4a6580'),
+                fontSize: 14, fontWeight: active ? 700 : 500,
+                cursor: 'pointer', outline: 'none', whiteSpace: 'nowrap',
+                transition: 'all .18s', flexShrink: 0,
+                marginBottom: -1,
+              }}
+              onMouseEnter={e => { if (!active) { e.currentTarget.style.color = isDanger ? '#fca5a5' : '#93b4d4' } }}
+              onMouseLeave={e => { if (!active) { e.currentTarget.style.color = isDanger ? '#f87171' : '#4a6580' } }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{t.icon}</span>
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
 
-        {/* ── Response Controls ───────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-8">
-          
-          {/* Active Control Toggles */}
-          {[
-            { id: 'kill_on_detection', label: 'Auto-Kill Detection', desc: 'Auto terminate malicious process', icon: 'gpp_bad', color: 'red', val: killEnabled, setter: setKillEnabled },
-            { id: 'email_enabled', label: 'Email Alerts', desc: 'Instant SMTP notifications', icon: 'mail', color: 'indigo', val: emailEnabled, setter: setEmailEnabled },
-            { id: 'telegram_enabled', label: 'Telegram Bot', desc: 'Secure phone notifications', icon: 'send', color: 'blue', val: telegramEnabled, setter: setTelegramEnabled },
-            { id: 'whatsapp_enabled', label: 'WhatsApp Status', desc: 'Meta Graph API Integration', icon: 'chat', color: 'emerald', val: whatsappEnabled, setter: setWhatsappEnabled }
-          ].map(toggle => (
-             <div key={toggle.id} className={`bg-white/[0.02] border ${toggle.val ? 'border-white/[0.1] shadow-[0_4px_20px_rgba(0,0,0,0.2)]' : 'border-white/[0.05]'} rounded-xl p-5 hover:bg-white/[0.04] transition-all relative overflow-hidden group backdrop-blur-md`}>
-                <div className={`absolute right-0 top-0 w-24 h-24 bg-${toggle.color}-500/${toggle.val ? '15' : '5'} rounded-bl-full flex items-start justify-end p-4 transition-all group-hover:bg-${toggle.color}-500/10`}></div>
-                <div className="flex justify-between items-start relative z-10">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                       <span className={`material-symbols-outlined text-[20px] text-${toggle.color}-400 ${toggle.val ? `drop-shadow-[0_0_8px_rgba(var(--tw-color-${toggle.color}-400),0.8)]` : ''}`}>{toggle.icon}</span>
-                       <h3 className="text-[13px] font-bold text-white/90">{toggle.label}</h3>
-                    </div>
-                    <p className="text-[11px] text-white/40">{toggle.desc}</p>
-                  </div>
-                  
-                  {/* Custom Toggle Switch */}
-                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in mt-1">
-                      <input 
-                        type="checkbox" 
-                        name={toggle.id} 
-                        id={toggle.id} 
-                        checked={toggle.val}
-                        onChange={() => handleToggle(toggle.id, !toggle.val, toggle.setter)}
-                        className={`toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-transform duration-200 z-10 ${toggle.val ? 'translate-x-5 border-indigo-500' : 'translate-x-0 border-[#1a1e26]'}`}
-                      />
-                      <label htmlFor={toggle.id} className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer transition-colors duration-200 ${toggle.val ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.4)]' : 'bg-white/10'}`}></label>
-                  </div>
-                </div>
-             </div>
-          ))}
+      {/* ══ BODY ══ */}
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '36px 36px 60px' }}>
 
-        </div>
+          {/* ════════════ DETECTION ════════════ */}
+          {tab === 'detection' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeUp .22s ease-out' }}>
 
-        {/* Warning Banner */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-amber-500/5 backdrop-blur-sm border border-amber-500/30 rounded-xl p-4 mb-8 
-                        animate-[pulse_3s_ease-in-out_infinite] hover:animate-none transition-all">
-            <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-amber-500 mt-0.5 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]">warning</span>
+              {/* Page title */}
               <div>
-                <h4 className="text-[13px] font-bold text-amber-500">Active Scan Conflict Warning</h4>
-                <p className="text-[12px] text-white/70 mt-0.5">Changing thresholds during an active scan may result in inconsistent reporting. It is recommended to pause engine workers before applying.</p>
+                <h2 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.5px' }}>Detection Settings</h2>
+                <p style={{ margin: 0, fontSize: 14, color: '#4a6580' }}>Configure Shannon entropy thresholds and detection sensitivity for accurate ransomware identification.</p>
+              </div>
+
+              {/* Entropy calibration */}
+              <Card>
+                <CardHeader icon="equalizer" iconColor="#818cf8" title="Shannon Entropy Calibration" subtitle="Tune the mathematical variation limit for file analysis" />
+                <CardBody>
+
+                  {/* Preset cards */}
+                  <div style={{ display: 'flex', gap: 14, marginBottom: 26 }}>
+                    <PresetBtn mode="conservative" color="#10b981" icon="shield"        label="Conservative" sub="Low false positives" />
+                    <PresetBtn mode="balanced"     color="#6366f1" icon="balance"       label="Balanced"     sub="Recommended" />
+                    <PresetBtn mode="aggressive"   color="#ef4444" icon="rocket_launch" label="Aggressive"   sub="Maximum detection" />
+                  </div>
+
+                  {/* Slider */}
+                  <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '22px 24px', marginBottom: 22 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.16em', color: '#3a5472' }}>Sensitivity Level</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.22)', borderRadius: 9 }}>
+                          <span style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 700, color: '#818cf8' }}>{sliderVal.toFixed(2)}</span>
+                          <span style={{ fontSize: 11, color: '#3a5472' }}>/ 1.00</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 9 }}>
+                          <span style={{ fontSize: 14, fontFamily: 'monospace', fontWeight: 700, color: '#f1f5f9' }}>{entropyThreshold.toFixed(1)}</span>
+                          <span style={{ fontSize: 11, color: '#3a5472' }}>eH</span>
+                        </div>
+                      </div>
+                    </div>
+                    <input type="range" min="0" max="1" step="0.01" value={sliderVal} onChange={onSlider} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                      {[['Permissive', '#10b981', sliderVal < 0.33], ['Balanced', '#818cf8', sliderVal >= 0.33 && sliderVal <= 0.66], ['Strict', '#ef4444', sliderVal > 0.66]].map(([t, c, active]) => (
+                        <span key={t} style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.12em', color: active ? c : '#2a3f56', textShadow: active ? `0 0 10px ${c}70` : 'none', transition: 'color .2s' }}>{t}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Stats row */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 8 }}>
+                    {[
+                      { l: 'False Positives', v: calibMode === 'conservative' ? '~0.2%' : calibMode === 'aggressive' ? '~8.4%' : '~2.4%', c: calibMode === 'conservative' ? '#34d399' : calibMode === 'aggressive' ? '#f87171' : '#fbbf24' },
+                      { l: 'Threat Coverage', v: calibMode === 'conservative' ? '92.4%' : calibMode === 'aggressive' ? '99.9%' : '99.8%', c: '#34d399' },
+                      { l: 'Entropy Cutoff',  v: `${entropyThreshold.toFixed(1)} eH`, c: '#818cf8' },
+                    ].map(s => (
+                      <div key={s.l} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '16px 18px', textAlign: 'center' }}>
+                        <p style={{ margin: '0 0 5px', fontSize: 22, fontWeight: 900, color: s.c, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>{s.v}</p>
+                        <p style={{ margin: 0, fontSize: 11, color: '#3a5472', textTransform: 'uppercase', letterSpacing: '0.12em', fontWeight: 600 }}>{s.l}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <InfoBox icon="lightbulb" color="#818cf8">
+                    Sensitivity above <strong style={{ color: '#c5d9f0' }}>0.80</strong> may trigger false alerts on legitimate encrypted archives (.zip, .7z, .rar). The <strong style={{ color: '#c5d9f0' }}>Balanced</strong> preset is recommended for most production environments.
+                  </InfoBox>
+                </CardBody>
+              </Card>
+
+              {/* Detection Engine */}
+              <Card>
+                <CardHeader icon="radar" iconColor="#22d3ee" title="Detection Engine" subtitle="Core scanning and monitoring behavior" />
+                <CardBody>
+                  <Row label="Real-Time Monitoring" desc="Continuously watch file system events as they occur — lowest latency detection">
+                    <Toggle checked={realTime} onChange={v => setRealTime(v)} color="#22d3ee" />
+                  </Row>
+                  <Row label="Deep File Scan" desc="Inspect file contents and structure in addition to entropy — slower but significantly more accurate" border>
+                    <Toggle checked={deepScan} onChange={v => setDeepScan(v)} color="#22d3ee" />
+                  </Row>
+                  <Row label="Honeypot Monitoring" desc="Enable canary file trap layer — catches ransomware before it reaches real data" border>
+                    <Toggle checked={honeypot} onChange={v => setHoneypot(v)} color="#22d3ee" />
+                  </Row>
+                  <Row label="Detection Window" desc="Time window used to count and evaluate suspicious file operations" border>
+                    <NumInput value={timeWindow} onChange={e => setTimeWindow(Number(e.target.value))} unit="seconds" min={1} max={60} />
+                  </Row>
+                  <Row label="Background Scan Interval" desc="How often the engine re-scans directories for new threats" border>
+                    <NumInput value={scanInterval} onChange={e => setScanInterval(Number(e.target.value))} unit="seconds" min={5} max={300} />
+                  </Row>
+                </CardBody>
+              </Card>
+            </div>
+          )}
+
+          {/* ════════════ RESPONSE ════════════ */}
+          {tab === 'response' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeUp .22s ease-out' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.5px' }}>Automated Response</h2>
+                <p style={{ margin: 0, fontSize: 14, color: '#4a6580' }}>Define exactly how the system reacts the moment ransomware is detected.</p>
+              </div>
+
+              <InfoBox icon="warning" color="#f59e0b">
+                <strong style={{ color: '#fbbf24' }}>Auto-kill and quarantine</strong> will terminate processes and restrict file access immediately upon detection with no further confirmation. Test thoroughly in a lab environment before enabling in production.
+              </InfoBox>
+
+              {/* Containment */}
+              <Card>
+                <CardHeader icon="gpp_bad" iconColor="#f87171" title="Containment Actions" subtitle="Immediate responses triggered on detection" />
+                <CardBody>
+                  <Row label="Auto-Kill Process" desc="Immediately terminate the malicious process upon detection — stops encryption in its tracks">
+                    <Toggle checked={killEnabled} onChange={v => handleToggle('kill_on_detection', v, setKillEnabled)} color="#ef4444" />
+                  </Row>
+                  <Row label="Folder Lockdown" desc="Restrict write access to affected directories during an active incident" border>
+                    <Toggle checked={folderLock} onChange={v => setFolderLock(v)} color="#ef4444" />
+                  </Row>
+                  <Row label="Auto Quarantine" desc="Move suspicious files to an isolated quarantine directory automatically" border>
+                    <Toggle checked={autoQuarantine} onChange={v => setAutoQuarantine(v)} color="#f59e0b" />
+                  </Row>
+                  <Row label="Alert Cooldown" desc="Minimum time between repeated alerts for the same host to prevent alert flooding" border>
+                    <NumInput value={alertCooldown} onChange={e => setAlertCooldown(Number(e.target.value))} unit="seconds" min={0} max={3600} />
+                  </Row>
+                </CardBody>
+              </Card>
+
+              {/* Response matrix */}
+              <Card>
+                <CardHeader icon="account_tree" iconColor="#818cf8" title="Response Matrix" subtitle="Live action plan based on your current configuration" />
+                <CardBody style={{ padding: '16px 26px' }}>
+                  {[
+                    { trigger: 'Ransomware Detected',    actions: [killEnabled && 'Kill Process', folderLock && 'Lock Folder', autoQuarantine && 'Quarantine', 'Generate Alert', 'Log Event'].filter(Boolean), level: 'critical' },
+                    { trigger: 'Honeytoken Accessed',    actions: ['Log Event', 'Generate Alert', 'Monitor Host'],                                                                                               level: 'warning'  },
+                    { trigger: 'High Entropy File Found', actions: ['Flag File', deepScan && 'Deep Scan', 'Increment Score', 'Log'].filter(Boolean),                                                           level: 'info'     },
+                    { trigger: 'Repeated Modifications',  actions: ['Increment Score', 'Monitor', alertCooldown > 0 ? `Cooldown ${alertCooldown}s` : null].filter(Boolean),                                   level: 'info'     },
+                  ].map((row, i) => (
+                    <div key={row.trigger} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', marginBottom: 10 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: row.level === 'critical' ? '#ef4444' : row.level === 'warning' ? '#f59e0b' : '#60a5fa', boxShadow: `0 0 8px ${row.level === 'critical' ? '#ef4444' : row.level === 'warning' ? '#f59e0b' : '#60a5fa'}80`, display: 'block' }} />
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#c5d9f0' }}>{row.trigger}</span>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        {row.actions.map(a => (
+                          <span key={a} style={{ fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 99, background: 'rgba(99,102,241,0.12)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.2)' }}>{a}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </CardBody>
+              </Card>
+            </div>
+          )}
+
+          {/* ════════════ NOTIFICATIONS ════════════ */}
+          {tab === 'notifications' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeUp .22s ease-out' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.5px' }}>Notifications</h2>
+                <p style={{ margin: 0, fontSize: 14, color: '#4a6580' }}>Configure how and where you receive security alerts when threats are detected.</p>
+              </div>
+
+              {/* Email */}
+              <Card>
+                <CardHeader
+                  icon="mail" iconColor="#60a5fa" title="Email Alerts" subtitle="SMTP-based email notifications"
+                  right={<Toggle checked={emailEnabled} onChange={v => handleToggle('email_enabled', v, setEmailEnabled)} color="#3b82f6" />}
+                />
+                <CardBody style={{ opacity: emailEnabled ? 1 : 0.45, transition: 'opacity .2s', pointerEvents: emailEnabled ? 'auto' : 'none' }}>
+                  <Row label="Recipient Address" desc="Where alert emails will be delivered">
+                    <TextInput value={emailAddr} onChange={e => setEmailAddr(e.target.value)} placeholder="admin@example.com" />
+                  </Row>
+                  <Row label="SMTP Host" desc="Your email server hostname" border>
+                    <TextInput value={smtpHost} onChange={e => setSmtpHost(e.target.value)} placeholder="smtp.gmail.com" />
+                  </Row>
+                  <Row label="SMTP Port" desc="Typically 587 (TLS) or 465 (SSL)" border>
+                    <NumInput value={smtpPort} onChange={e => setSmtpPort(Number(e.target.value))} min={1} max={65535} w={100} />
+                  </Row>
+                  <Row label="Test Connection" desc="Verify your SMTP settings by sending a test email" border>
+                    <button
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.24)', color: '#60a5fa', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .18s', outline: 'none' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(59,130,246,0.1)'}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>send</span>
+                      Send Test Email
+                    </button>
+                  </Row>
+                </CardBody>
+              </Card>
+
+              {/* Telegram */}
+              <Card>
+                <CardHeader
+                  icon="send" iconColor="#818cf8" title="Telegram Bot" subtitle="Instant mobile notifications via Telegram"
+                  right={<Toggle checked={telegramEnabled} onChange={v => handleToggle('telegram_enabled', v, setTelegramEnabled)} color="#6366f1" />}
+                />
+                <CardBody style={{ opacity: telegramEnabled ? 1 : 0.45, transition: 'opacity .2s', pointerEvents: telegramEnabled ? 'auto' : 'none' }}>
+                  <Row label="Bot Token" desc="Obtained from @BotFather on Telegram">
+                    <TextInput value={telegramToken} onChange={e => setTelegramToken(e.target.value)} placeholder="1234567890:AAHxxxxx…" w={300} />
+                  </Row>
+                  <Row label="Chat ID" desc="Your personal or group chat ID for delivery" border>
+                    <TextInput value={telegramChat} onChange={e => setTelegramChat(e.target.value)} placeholder="-1001234567890" />
+                  </Row>
+                  <Row label="Test Bot" desc="Send a test message to verify connectivity" border>
+                    <button
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 10, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.24)', color: '#818cf8', fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .18s', outline: 'none' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.2)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.1)'}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 16 }}>send</span>
+                      Send Test Message
+                    </button>
+                  </Row>
+                </CardBody>
+              </Card>
+
+              {/* WhatsApp */}
+              <Card>
+                <CardHeader
+                  icon="chat" iconColor="#34d399" title="WhatsApp" subtitle="Meta Cloud API integration"
+                  right={<Toggle checked={whatsappEnabled} onChange={v => handleToggle('whatsapp_enabled', v, setWhatsappEnabled)} color="#10b981" />}
+                />
+                <CardBody>
+                  <InfoBox icon="info" color="#34d399">
+                    Requires a verified Meta Business account and approved WhatsApp Cloud API access. Visit the Meta Developer Portal to generate your access token and phone number ID before enabling this integration.
+                  </InfoBox>
+                  <Row label="API Status" desc="Current WhatsApp integration status">
+                    <Badge label={whatsappEnabled ? 'Active' : 'Inactive'} color={whatsappEnabled ? '#34d399' : '#4a6580'} />
+                  </Row>
+                </CardBody>
+              </Card>
+            </div>
+          )}
+
+          {/* ════════════ PERFORMANCE ════════════ */}
+          {tab === 'performance' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeUp .22s ease-out' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.5px' }}>Performance</h2>
+                <p style={{ margin: 0, fontSize: 14, color: '#4a6580' }}>Tune resource usage and control how aggressively the engine scans the system.</p>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                {/* Resource limits */}
+                <Card>
+                  <CardHeader icon="speed" iconColor="#f59e0b" title="Resource Limits" subtitle="CPU and thread usage controls" />
+                  <CardBody>
+                    <Row label="Worker Threads" desc="Number of parallel file scanning threads">
+                      <Select value={maxThreads} onChange={e => setMaxThreads(e.target.value)} options={[
+                        { value: 'auto', label: 'Auto (Recommended)' },
+                        { value: '1',    label: '1 Thread'           },
+                        { value: '2',    label: '2 Threads'          },
+                        { value: '4',    label: '4 Threads'          },
+                        { value: 'max',  label: 'Max Available'      },
+                      ]} />
+                    </Row>
+                    <Row label="Log Level" desc="Verbosity of engine diagnostic logs" border>
+                      <Select value={logLevel} onChange={e => setLogLevel(e.target.value)} options={[
+                        { value: 'debug',   label: 'Debug (Verbose)' },
+                        { value: 'info',    label: 'Info (Default)'  },
+                        { value: 'warning', label: 'Warning Only'    },
+                        { value: 'error',   label: 'Errors Only'     },
+                      ]} />
+                    </Row>
+                    <Row label="Log Retention" desc="Days before automatic log deletion" border>
+                      <NumInput value={retentionDays} onChange={e => setRetentionDays(Number(e.target.value))} unit="days" min={1} max={365} />
+                    </Row>
+                  </CardBody>
+                </Card>
+
+                {/* Resource forecast */}
+                <Card>
+                  <CardHeader icon="monitoring" iconColor="#22d3ee" title="Resource Forecast" subtitle="Estimated system impact" />
+                  <CardBody>
+                    <ResourceBar label="CPU Usage"    pct={maxThreads === 'max' ? 88 : maxThreads === '4' ? 58 : maxThreads === '2' ? 32 : 18} color="#22d3ee" />
+                    <ResourceBar label="Memory"       pct={deepScan ? 68 : 28}                                                                   color="#818cf8" />
+                    <ResourceBar label="Disk I/O"     pct={scanInterval < 15 ? 78 : scanInterval < 30 ? 48 : 20}                                 color="#f59e0b" />
+                    <ResourceBar label="Network Load" pct={Math.min(100, (emailEnabled ? 15 : 0) + (telegramEnabled ? 12 : 0) + (whatsappEnabled ? 12 : 0) + 5)} color="#34d399" />
+                    <div style={{ marginTop: 18, padding: '12px 14px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10 }}>
+                      <p style={{ margin: 0, fontSize: 12, color: '#3a5472', lineHeight: 1.6 }}>
+                        <span style={{ color: '#6b8aaa', fontWeight: 700 }}>Tip:</span> Enabling deep scan significantly increases memory and I/O usage. Consider running it on a schedule rather than in real-time.
+                      </p>
+                    </div>
+                  </CardBody>
+                </Card>
               </div>
             </div>
-            <button className="shrink-0 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-400 hover:text-amber-300 text-[12px] font-bold px-4 py-2 rounded-lg transition-colors uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.15)]">
-              Pause Scans
-            </button>
-        </div>
+          )}
 
+          {/* ════════════ ADVANCED ════════════ */}
+          {tab === 'advanced' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeUp .22s ease-out' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.5px' }}>Advanced</h2>
+                <p style={{ margin: 0, fontSize: 14, color: '#4a6580' }}>Low-level engine options for experienced administrators. Change these only if you know what you're doing.</p>
+              </div>
 
-        {/* Layout Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Center */}
-            <div className="col-span-1 lg:col-span-2 space-y-8">
-               
-               {/* Entropy Control Card */}
-               <div className="bg-white/[0.02] border border-white/10 rounded-xl overflow-hidden glass shadow-xl shadow-black/20">
-                  <div className="p-6 border-b border-white/[0.05] flex justify-between items-center bg-white/[0.01]">
-                    <div>
-                      <h3 className="text-sm font-bold text-white/90">Shannon Entropy Calibration</h3>
-                      <p className="text-[11px] text-white/40 mt-1 uppercase tracking-widest">Adjust mathematical variation limit</p>
-                    </div>
-                    <span className="material-symbols-outlined text-white/20">equalizer</span>
-                  </div>
-                  
-                  <div className="p-6">
-                    {/* Presets */}
-                    <div className="grid grid-cols-3 gap-4 mb-8">
-                       <button 
-                         onClick={() => handleCalibrationClick('conservative')}
-                         className={`border rounded-xl p-4 text-center transition-all group flex flex-col items-center relative overflow-hidden
-                           ${calibrationMode === 'conservative' 
-                             ? 'border-emerald-500/50 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.15)] scale-[1.02]' 
-                             : 'border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.05] hover:border-emerald-500/20 hover:scale-[1.01]'}`}
-                       >
-                          {calibrationMode === 'conservative' && <div className="absolute top-0 right-0 py-1 px-3 bg-emerald-500 text-white text-[9px] font-black tracking-widest uppercase rounded-bl-lg">Active</div>}
-                          <span className={`material-symbols-outlined text-[24px] mb-2 ${calibrationMode === 'conservative' ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'text-emerald-400/50 group-hover:text-emerald-400/80'}`}>shield</span>
-                          <span className={`text-[12px] font-bold ${calibrationMode === 'conservative' ? 'text-emerald-300' : 'text-white/80'}`}>Conservative</span>
-                          <span className="text-[10px] text-white/40 mt-1">Low false flags</span>
-                       </button>
-                       <button 
-                         onClick={() => handleCalibrationClick('balanced')}
-                         className={`border rounded-xl p-4 text-center transition-all group flex flex-col items-center relative overflow-hidden
-                           ${calibrationMode === 'balanced' 
-                             ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.15)] scale-[1.02]' 
-                             : 'border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.05] hover:border-indigo-500/20 hover:scale-[1.01]'}`}
-                       >
-                          {calibrationMode === 'balanced' && <div className="absolute top-0 right-0 py-1 px-3 bg-indigo-500 text-white text-[9px] font-black tracking-widest uppercase rounded-bl-lg">Active</div>}
-                          <span className={`material-symbols-outlined text-[24px] mb-2 ${calibrationMode === 'balanced' ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.8)]' : 'text-indigo-400/50 group-hover:text-indigo-400/80'}`}>balance</span>
-                          <span className={`text-[12px] font-bold ${calibrationMode === 'balanced' ? 'text-indigo-300' : 'text-white/80'}`}>Balanced</span>
-                          <span className="text-[10px] text-white/40 mt-1">Recommended</span>
-                       </button>
-                       <button 
-                         onClick={() => handleCalibrationClick('aggressive')}
-                         className={`border rounded-xl p-4 text-center transition-all group flex flex-col items-center relative overflow-hidden
-                           ${calibrationMode === 'aggressive' 
-                             ? 'border-red-500/50 bg-red-500/10 shadow-[0_0_20px_rgba(239,68,68,0.15)] scale-[1.02]' 
-                             : 'border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.05] hover:border-red-500/20 hover:scale-[1.01]'}`}
-                       >
-                          {calibrationMode === 'aggressive' && <div className="absolute top-0 right-0 py-1 px-3 bg-red-500 text-white text-[9px] font-black tracking-widest uppercase rounded-bl-lg">Active</div>}
-                          <span className={`material-symbols-outlined text-[24px] mb-2 ${calibrationMode === 'aggressive' ? 'text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]' : 'text-red-500/50 group-hover:text-red-500/80'}`}>rocket_launch</span>
-                          <span className={`text-[12px] font-bold ${calibrationMode === 'aggressive' ? 'text-red-300' : 'text-white/80'}`}>Aggressive</span>
-                          <span className="text-[10px] text-white/40 mt-1">Max detection</span>
-                       </button>
-                    </div>
+              <Card>
+                <CardHeader icon="build" iconColor="#818cf8" title="Engine Internals" subtitle="Fine-grained algorithm controls" />
+                <CardBody>
+                  <Row label="Adaptive Threshold" desc="Allow the engine to auto-adjust entropy limits based on observed baseline activity">
+                    <Toggle checked={adaptiveThresh} onChange={setAdaptiveThresh} color="#818cf8" />
+                  </Row>
+                  <Row label="Process Signature Database" desc="Use known ransomware process signatures for faster, more accurate identification" border>
+                    <Toggle checked={procSignatureDB} onChange={setProcSignatureDB} color="#818cf8" />
+                  </Row>
+                  <Row label="Network Isolation Mode" desc="Automatically block outbound network connections from detected malicious processes" border>
+                    <Toggle checked={networkIsolation} onChange={setNetworkIsolation} color="#f87171" />
+                  </Row>
+                  <Row label="Sandbox Analysis" desc="Route suspicious files through an isolated sandbox for evaluation — significantly slower" border>
+                    <Toggle checked={sandbox} onChange={setSandbox} color="#818cf8" />
+                  </Row>
+                </CardBody>
+              </Card>
 
-                    {/* Master Slider */}
-                    <div className="bg-[#020408]/50 border border-white/[0.02] rounded-xl p-6 mb-8 relative overflow-hidden group">
-                       <div className="absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-transparent via-indigo-500 to-transparent opacity-50"></div>
-                       <div className="flex justify-between items-center mb-6">
-                          <label className="text-[13px] font-bold text-white/80 tracking-widest uppercase">Sensitivity Level</label>
-                          <span className="text-[14px] font-mono text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-md border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.2)]">{sliderVal} <span className="text-white/50 text-[11px]">({entropyThreshold} eH)</span></span>
-                       </div>
-                       
-                       <input 
-                         className="w-full relative z-10" 
-                         max="1" 
-                         min="0" 
-                         step="0.01" 
-                         type="range" 
-                         value={sliderVal} 
-                         onChange={handleSliderChange} 
-                       />
-                       
-                       <div className="flex justify-between mt-3 text-[10px] font-medium text-white/30 uppercase tracking-widest">
-                          <span className={sliderVal < 0.33 ? 'text-emerald-400 drop-shadow-[0_0_5px_rgba(16,185,129,0.5)]' : ''}>Permissive (0.0)</span>
-                          <span className={sliderVal >= 0.33 && sliderVal <= 0.66 ? 'text-indigo-400 drop-shadow-[0_0_5px_rgba(99,102,241,0.5)]' : ''}>Balanced (0.5)</span>
-                          <span className={sliderVal > 0.66 ? 'text-red-400 drop-shadow-[0_0_5px_rgba(239,68,68,0.5)]' : ''}>Strict (1.0)</span>
-                       </div>
-                    </div>
-
-                    {/* Minor Options */}
-                    <div className="grid grid-cols-2 gap-4">
-                       <div className="bg-white/[0.01] border border-white/[0.04] rounded-xl p-4 transition-colors hover:border-white/[0.1]">
-                         <label className="text-[11px] font-bold text-white/50 uppercase tracking-widest block mb-2">Max Threads</label>
-                         <select className="w-full bg-[#020408]/80 border border-white/[0.1] rounded-lg p-2.5 text-[13px] text-white/80 outline-none focus:border-indigo-500/50 transition-colors cursor-pointer">
-                            <option>Auto (Recommended)</option>
-                            <option>2 Core Bound</option>
-                            <option>4 Core Bound</option>
-                            <option>Max Available</option>
-                         </select>
-                       </div>
-                       <div className="bg-white/[0.01] border border-white/[0.04] rounded-xl p-4 transition-colors hover:border-white/[0.1]">
-                         <label className="text-[11px] font-bold text-white/50 uppercase tracking-widest block mb-2">Window (ms)</label>
-                         <input type="number" value={timeWindow * 1000} onChange={(e) => setTimeWindow(e.target.value / 1000)} className="w-full bg-[#020408]/80 border border-white/[0.1] rounded-lg p-2.5 text-[13px] font-mono text-white/80 outline-none focus:border-indigo-500/50 transition-colors" />
-                       </div>
-                    </div>
-                  </div>
-               </div>
+              <Card>
+                <CardHeader icon="info" iconColor="#60a5fa" title="Build Information" subtitle="Version and system details" />
+                <CardBody>
+                  {[
+                    ['Engine Version',     'Ransom Trap v1.0.0'],
+                    ['Detection Database', '2024.12 Rev. 441'  ],
+                    ['Python Runtime',     '3.11.x'             ],
+                    ['Config Format',      'JSON v2'            ],
+                    ['Platform',           'Windows / Cross-OS' ],
+                    ['Last Calibration',   'Manual · Balanced'  ],
+                  ].map(([k, v], i) => (
+                    <Row key={k} label={k} border={i > 0}>
+                      <span style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 600, color: '#60a5fa', background: 'rgba(59,130,246,0.09)', padding: '4px 12px', borderRadius: 8, border: '1px solid rgba(59,130,246,0.18)' }}>{v}</span>
+                    </Row>
+                  ))}
+                </CardBody>
+              </Card>
             </div>
+          )}
 
-            {/* Sidebar Data */}
-            <div className="col-span-1 space-y-8">
-               {/* Analysis Widget */}
-               <div className="bg-white/[0.02] border border-white/10 rounded-xl overflow-hidden glass p-6 shadow-xl shadow-black/20">
-                 <h3 className="text-[11px] font-bold text-white/50 uppercase tracking-widest mb-6 flex items-center gap-2">
-                   <span className="material-symbols-outlined text-[16px]">analytics</span> Projected Impact
-                 </h3>
-                 
-                 <div className="relative h-32 w-full mb-6 flex items-end justify-between gap-1 group/chart">
-                    {/* Graph Background Lines */}
-                    <div className="absolute inset-0 flex flex-col justify-between py-1 opacity-20 pointer-events-none z-0">
-                      {[1,2,3,4].map(i => <div key={i} className="w-full h-px bg-white border-b border-dashed border-white/50"></div>)}
-                    </div>
-                    {/* Bars */}
-                    <div className={`w-1/3 transition-all duration-500 ease-out bg-gradient-to-t from-emerald-500/30 to-emerald-400/90 rounded-t-lg relative group ${calibrationMode === 'conservative' ? 'h-[50%]' : calibrationMode === 'aggressive' ? 'h-[15%]' : 'h-[30%]'}`}>
-                       <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded">Safe</div>
-                    </div>
-                    <div className={`w-1/3 transition-all duration-500 ease-out bg-gradient-to-t from-indigo-500/30 to-indigo-400/90 rounded-t-lg relative z-10 group shadow-[0_0_20px_rgba(99,102,241,0.2)] ${calibrationMode === 'conservative' ? 'h-[45%]' : calibrationMode === 'aggressive' ? 'h-[40%]' : 'h-[75%]'}`}>
-                       <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded">Normal</div>
-                    </div>
-                    <div className={`w-1/3 transition-all duration-500 ease-out bg-gradient-to-t from-red-500/30 to-red-400/90 rounded-t-lg relative group ${calibrationMode === 'conservative' ? 'h-[5%]' : calibrationMode === 'aggressive' ? 'h-[45%]' : 'h-[15%]'}`}>
-                       <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 px-2 py-1 rounded">Threats</div>
-                    </div>
-                 </div>
+          {/* ════════════ DANGER ZONE ════════════ */}
+          {tab === 'danger' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, animation: 'fadeUp .22s ease-out' }}>
+              <div>
+                <h2 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 900, color: '#f87171', letterSpacing: '-0.5px' }}>Danger Zone</h2>
+                <p style={{ margin: 0, fontSize: 14, color: '#4a6580' }}>Irreversible destructive actions. There is no undo. Proceed with extreme caution.</p>
+              </div>
 
-                 <div className="space-y-4">
-                    <div className="flex justify-between items-center text-[13px]">
-                       <span className="text-white/60">False Positives (Est)</span>
-                       <span className="font-mono text-[#fffb00] font-bold">~{calibrationMode === 'conservative' ? '0.2' : calibrationMode === 'aggressive' ? '8.4' : '2.4'}%</span>
-                    </div>
-                    <div className="flex justify-between items-center text-[13px] border-b border-white/[0.05] pb-4">
-                       <span className="text-white/60">Threat Coverage</span>
-                       <span className="font-mono text-emerald-400 font-bold">{calibrationMode === 'conservative' ? '92.4' : calibrationMode === 'aggressive' ? '99.9' : '99.8'}%</span>
-                    </div>
-                    
-                    <p className="text-[11px] text-white/40 leading-relaxed pt-2">
-                       <span className="text-white/70 font-bold">Note:</span> Increasing sensitivity beyond 0.8 may trigger flags on standard encrypted archives (.zip, .rar).
-                    </p>
-                 </div>
-               </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '18px 20px', background: 'rgba(239,68,68,0.07)', border: '1.5px solid rgba(239,68,68,0.22)', borderRadius: 14 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 24, color: '#f87171', flexShrink: 0 }}>error</span>
+                <div>
+                  <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#f87171' }}>Irreversible Operations — No Undo</p>
+                  <p style={{ margin: 0, fontSize: 13, color: '#7a3a3a', lineHeight: 1.6 }}>
+                    Actions below permanently modify or delete data from the system. Ensure you have exported any important logs or configurations before proceeding.
+                  </p>
+                </div>
+              </div>
 
-               {/* Action Buttons */}
-               <div className="space-y-3">
-                  <button className="w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-400 hover:to-blue-500 text-white font-bold text-[13px] p-4 rounded-xl shadow-[0_0_20px_rgba(99,102,241,0.4)] hover:shadow-[0_0_30px_rgba(99,102,241,0.6)] transition-all flex items-center justify-center gap-2 group transform active:scale-[0.98]">
-                    <span className="material-symbols-outlined text-[18px] group-hover:animate-pulse">save</span> Apply Configuration
-                  </button>
-                  <button className="w-full bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] hover:border-white/[0.1] text-white/60 hover:text-white font-bold text-[13px] p-4 rounded-xl transition-all transform active:scale-[0.98]">
-                    Discard Changes
-                  </button>
-                  <button className="w-full text-[11px] text-white/30 hover:text-white/80 underline underline-offset-4 mt-2 transition-colors">
-                    Reset Factory Defaults
-                  </button>
-               </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {[
+                  { title: 'Clear All Alerts',          desc: 'Permanently delete every recorded security alert from the database. Historical incident data will be lost.',                             icon: 'delete_sweep',          btnLabel: 'Clear Alerts',     btnColor: '#f59e0b', fn: () => showToast('All alerts cleared') },
+                  { title: 'Export & Wipe Logs',        desc: 'Download a complete log archive to your browser, then permanently delete all log files from disk.',                                   icon: 'file_download_off',     btnLabel: 'Export & Wipe',    btnColor: '#fb923c', fn: () => showToast('Logs exported and wiped') },
+                  { title: 'Reset to Factory Defaults', desc: 'Restore all engine settings to their original factory state. Notification credentials, thresholds, and custom rules will be lost.',  icon: 'settings_backup_restore', btnLabel: 'Reset Defaults', btnColor: '#ef4444', fn: () => setConfirmReset(true) },
+                  { title: 'Uninstall Ransom Trap',     desc: 'Remove all Ransom Trap files, honeypot tokens, configurations, and scheduled tasks from this system entirely.',                       icon: 'delete_forever',        btnLabel: 'Uninstall',        btnColor: '#dc2626', fn: () => showToast('Uninstall is disabled in demo mode', 'error') },
+                ].map(a => (
+                  <div key={a.title} style={{ display: 'flex', alignItems: 'center', gap: 18, padding: '22px 24px', background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.12)', borderRadius: 16, transition: 'background .18s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.07)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.04)'}
+                  >
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span className="material-symbols-outlined" style={{ fontSize: 20, color: '#f87171' }}>{a.icon}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#f1f5f9' }}>{a.title}</p>
+                      <p style={{ margin: 0, fontSize: 12, color: '#4a6580', lineHeight: 1.55 }}>{a.desc}</p>
+                    </div>
+                    <button
+                      onClick={a.fn}
+                      style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', borderRadius: 10, background: `${a.btnColor}14`, border: `1.5px solid ${a.btnColor}35`, color: a.btnColor, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .18s', whiteSpace: 'nowrap', outline: 'none' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = `${a.btnColor}28`; e.currentTarget.style.borderColor = `${a.btnColor}60`; e.currentTarget.style.boxShadow = `0 0 18px ${a.btnColor}25` }}
+                      onMouseLeave={e => { e.currentTarget.style.background = `${a.btnColor}14`; e.currentTarget.style.borderColor = `${a.btnColor}35`; e.currentTarget.style.boxShadow = 'none' }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 15 }}>{a.icon}</span>
+                      {a.btnLabel}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
+          )}
+
         </div>
+      </div>
 
-      </main>
-
-      {/* Toast Notification */}
-      {toastMsg && (
-        <div className="fixed bottom-8 right-8 bg-[#020408] border border-emerald-500/50 text-emerald-400 font-medium px-5 py-4 rounded-xl shadow-[0_0_40px_rgba(16,185,129,0.3)] flex items-center gap-3 z-50 animate-bounce glass">
-           <span className="material-symbols-outlined text-[24px]">check_circle</span>
-           <span>{toastMsg}</span>
+      {/* ══ CONFIRM RESET MODAL ══ */}
+      {confirmReset && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setConfirmReset(false) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(7px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        >
+          <div style={{ width: '100%', maxWidth: 440, borderRadius: 20, background: '#0c1525', border: '1.5px solid rgba(239,68,68,0.28)', boxShadow: '0 28px 70px rgba(0,0,0,0.85)', padding: '28px', animation: 'modalIn .2s ease-out' }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(239,68,68,0.13)', border: '1.5px solid rgba(239,68,68,0.28)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, boxShadow: '0 0 22px rgba(239,68,68,0.2)' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 26, color: '#f87171' }}>settings_backup_restore</span>
+            </div>
+            <h3 style={{ margin: '0 0 8px', fontSize: 20, fontWeight: 900, color: '#f1f5f9' }}>Reset to Factory Defaults?</h3>
+            <p style={{ margin: '0 0 22px', fontSize: 13, color: '#4a6580', lineHeight: 1.65 }}>
+              This will permanently erase all custom configurations including notification credentials, entropy thresholds, and response settings. Your current configuration will be lost and cannot be recovered.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setConfirmReset(false)}
+                style={{ padding: '10px 20px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#6b8aaa', fontSize: 14, fontWeight: 700, cursor: 'pointer', transition: 'all .15s', outline: 'none' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#6b8aaa' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setConfirmReset(false); showToast('Settings reset to factory defaults') }}
+                style={{ padding: '10px 22px', borderRadius: 10, background: 'linear-gradient(135deg,#dc2626,#b91c1c)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 18px rgba(220,38,38,0.42)', transition: 'box-shadow .18s', outline: 'none' }}
+                onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 26px rgba(220,38,38,0.65)'}
+                onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 18px rgba(220,38,38,0.42)'}
+              >
+                Yes, Reset Everything
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* ══ TOAST ══ */}
+      {toast && (() => {
+        const c = toastColors[toast.type] || toastColors.success
+        return (
+          <div style={{
+            position: 'fixed', bottom: 30, right: 30, zIndex: 9999,
+            display: 'flex', alignItems: 'center', gap: 11,
+            padding: '13px 20px', borderRadius: 13,
+            background: c.bg, border: `1.5px solid ${c.border}`,
+            boxShadow: `0 8px 36px ${c.shadow}`,
+            animation: 'toastSlide .25s ease-out',
+            color: c.text, fontSize: 14, fontWeight: 600, maxWidth: 360,
+          }}>
+            <span className="material-symbols-outlined" style={{ fontSize: 20, flexShrink: 0 }}>{c.icon}</span>
+            {toast.msg}
+          </div>
+        )
+      })()}
+
     </div>
   )
 }
