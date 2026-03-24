@@ -16,15 +16,26 @@ export default function ManualScanPage() {
     const [simMsg, setSimMsg] = useState('')
     const [isUndoing, setIsUndoing] = useState(false)
     const [activeTab, setActiveTab] = useState('scanner') // 'scanner' | 'directories' | 'simulation'
+    const [selectedSimPaths, setSelectedSimPaths] = useState([])
+
+    function togglePath(p) {
+        setSelectedSimPaths(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
+    }
+    function selectAllPaths() {
+        setSelectedSimPaths(prev => prev.length === monitoredPaths.length ? [] : [...monitoredPaths])
+    }
 
     async function handleSimulate() {
         if (isSimulating) return
+        const targets = selectedSimPaths.length > 0 ? selectedSimPaths : (monitoredPaths.length > 0 ? [monitoredPaths[0]] : [])
+        if (targets.length === 0) return
         setIsSimulating(true)
         setSimMsg('')
         try {
-            const target = monitoredPaths.length > 0 ? monitoredPaths[0] : null;
-            await simulateRansomware(target)
-            setSimMsg(`Mock Ransomware process triggered on ${target || 'default'}! Watch for alerts.`)
+            for (const target of targets) {
+                await simulateRansomware(target)
+            }
+            setSimMsg(`Simulation triggered on ${targets.length} path${targets.length !== 1 ? 's' : ''}! Watch for alerts.`)
         } catch (e) {
             setSimMsg(`Error: ${e.message}`)
         } finally {
@@ -35,12 +46,15 @@ export default function ManualScanPage() {
 
     async function handleUndo() {
         if (isUndoing) return
+        const targets = selectedSimPaths.length > 0 ? selectedSimPaths : (monitoredPaths.length > 0 ? [monitoredPaths[0]] : [])
+        if (targets.length === 0) return
         setIsUndoing(true)
         setSimMsg('')
         try {
-            const target = monitoredPaths.length > 0 ? monitoredPaths[0] : null;
-            await undoSimulation(target)
-            setSimMsg('Undo triggered! Restoring original data from .bak files.')
+            for (const target of targets) {
+                await undoSimulation(target)
+            }
+            setSimMsg(`Undo triggered on ${targets.length} path${targets.length !== 1 ? 's' : ''}! Restoring files.`)
         } catch (e) {
             setSimMsg(`Undo Error: ${e.message}`)
         } finally {
@@ -51,7 +65,9 @@ export default function ManualScanPage() {
 
     useEffect(() => {
         fetchConfig().then(cfg => {
-            setMonitoredPaths(cfg.monitored_paths || [])
+            const paths = cfg.monitored_paths || []
+            setMonitoredPaths(paths)
+            if (paths.length > 0 && selectedSimPaths.length === 0) setSelectedSimPaths([...paths])
         }).catch(() => { })
     }, [])
 
@@ -122,7 +138,16 @@ export default function ManualScanPage() {
             })
             if (!res.ok) throw new Error(`Server responded with status: ${res.status}`)
             const data = await res.json()
-            setResults(data.results || [])
+            // Enrich results with file size and type from the original FileList
+            const enriched = (data.results || []).map((r, i) => {
+                const fileObj = files[i]
+                return {
+                    ...r,
+                    size: fileObj ? fileObj.size : 0,
+                    type: fileObj ? (fileObj.type || fileObj.name.split('.').pop()) : 'unknown',
+                }
+            })
+            setResults(enriched)
         } catch (err) {
             setError(err.message || 'An error occurred during scanning.')
         } finally {
@@ -330,7 +355,8 @@ export default function ManualScanPage() {
                                             const entropyPct = (r.entropy / 8) * 100
                                             const barColor = r.compromised ? 'bg-gradient-to-r from-red-500 to-red-400' : r.entropy > 5 ? 'bg-gradient-to-r from-amber-500 to-amber-400' : 'bg-gradient-to-r from-emerald-500 to-emerald-400'
                                             const threatLevel = r.compromised ? 'CRITICAL' : r.entropy > 6 ? 'HIGH' : r.entropy > 4 ? 'MEDIUM' : 'LOW'
-                                            const threatColor = r.compromised ? 'text-danger' : r.entropy > 6 ? 'text-amber-400' : r.entropy > 4 ? 'text-yellow-400' : 'text-emerald-400'
+                                            const fileSize = r.size ? (r.size < 1024 ? `${r.size} B` : r.size < 1048576 ? `${(r.size / 1024).toFixed(1)} KB` : `${(r.size / 1048576).toFixed(2)} MB`) : '—'
+                                            const fileExt = r.filename?.split('.').pop()?.toUpperCase() || '—'
                                             return (
                                                 <div key={i} className="px-6 py-4 hover:bg-white/[0.02] transition-colors">
                                                     <div className="flex items-center justify-between mb-3">
@@ -338,7 +364,10 @@ export default function ManualScanPage() {
                                                             <span className={`material-symbols-outlined text-[20px] ${r.compromised ? 'text-danger' : 'text-emerald-400'}`}>
                                                                 {r.compromised ? 'gpp_bad' : 'gpp_good'}
                                                             </span>
-                                                            <span className="text-sm font-medium truncate max-w-[300px]" title={r.filename}>{r.filename}</span>
+                                                            <div className="min-w-0">
+                                                                <span className="text-sm font-medium truncate block max-w-[300px]" title={r.filename}>{r.filename}</span>
+                                                                <span className="text-[11px] text-text-secondary">{fileExt} · {fileSize}</span>
+                                                            </div>
                                                         </div>
                                                         <div className="flex items-center gap-4 flex-shrink-0">
                                                             <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border ${r.compromised
@@ -347,12 +376,24 @@ export default function ManualScanPage() {
                                                                     ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
                                                                     : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
                                                                 }`}>{threatLevel}</span>
-                                                            <span className="text-sm font-mono font-bold tabular-nums w-14 text-right">{r.entropy.toFixed(3)}</span>
+                                                            <div className="text-right">
+                                                                <span className="text-sm font-mono font-bold tabular-nums block">{r.entropy.toFixed(3)}</span>
+                                                                <span className="text-[10px] text-text-secondary">bits/byte</span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                                        <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: `${entropyPct}%` }} />
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden flex-1">
+                                                            <div className={`h-full rounded-full ${barColor} transition-all duration-700`} style={{ width: `${entropyPct}%` }} />
+                                                        </div>
+                                                        <span className="text-[10px] text-text-secondary/60 w-8 text-right">{Math.round(entropyPct)}%</span>
                                                     </div>
+                                                    {r.compromised && (
+                                                        <p className="text-[11px] text-danger/80 mt-2 flex items-center gap-1.5">
+                                                            <span className="material-symbols-outlined text-[14px]">warning</span>
+                                                            Entropy exceeds threshold — file likely encrypted by ransomware
+                                                        </p>
+                                                    )}
                                                 </div>
                                             )
                                         })}
@@ -487,15 +528,52 @@ export default function ManualScanPage() {
                                 <h3 className="font-bold">Simulation Controls</h3>
                             </div>
                             <div className="p-6 space-y-6">
-                                {/* Target */}
-                                {monitoredPaths.length > 0 && (
-                                    <div className="flex items-center gap-3 bg-background-dark border border-white/5 rounded-xl px-4 py-3">
-                                        <span className="material-symbols-outlined text-text-secondary text-[18px]">location_on</span>
-                                        <span className="text-text-secondary text-sm">Target:</span>
-                                        <span className="text-white font-mono text-sm">{monitoredPaths[0]}</span>
+                                {/* Multi-Select Target Paths */}
+                                {monitoredPaths.length > 0 ? (
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <label className="text-xs font-bold text-text-secondary uppercase tracking-wider">Target Directories</label>
+                                            <button
+                                                onClick={selectAllPaths}
+                                                className="text-[11px] font-semibold text-primary hover:text-blue-300 transition-colors flex items-center gap-1"
+                                            >
+                                                <span className="material-symbols-outlined text-[14px]">
+                                                    {selectedSimPaths.length === monitoredPaths.length ? 'deselect' : 'select_all'}
+                                                </span>
+                                                {selectedSimPaths.length === monitoredPaths.length ? 'Deselect All' : 'Select All'}
+                                            </button>
+                                        </div>
+                                        <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
+                                            {monitoredPaths.map(p => {
+                                                const isSelected = selectedSimPaths.includes(p)
+                                                return (
+                                                    <button
+                                                        key={p}
+                                                        onClick={() => togglePath(p)}
+                                                        className={`w-full flex items-center gap-3 text-left px-4 py-3 rounded-xl border transition-all ${
+                                                            isSelected
+                                                                ? 'bg-primary/10 border-primary/30 hover:bg-primary/15'
+                                                                : 'bg-background-dark border-white/5 hover:border-white/15 hover:bg-white/[0.02]'
+                                                        }`}
+                                                    >
+                                                        <div className={`size-5 rounded-md flex items-center justify-center flex-shrink-0 border transition-all ${
+                                                            isSelected
+                                                                ? 'bg-primary border-primary'
+                                                                : 'border-white/20 bg-transparent'
+                                                        }`}>
+                                                            {isSelected && <span className="material-symbols-outlined text-white text-[16px]">check</span>}
+                                                        </div>
+                                                        <span className="material-symbols-outlined text-[18px] flex-shrink-0 text-text-secondary">folder</span>
+                                                        <span className="text-sm font-mono text-white truncate">{p}</span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                        <p className="text-[11px] text-text-secondary/60 mt-2.5">
+                                            {selectedSimPaths.length} of {monitoredPaths.length} path{monitoredPaths.length !== 1 ? 's' : ''} selected
+                                        </p>
                                     </div>
-                                )}
-                                {monitoredPaths.length === 0 && (
+                                ) : (
                                     <div className="flex items-center gap-3 bg-amber-500/5 border border-amber-500/10 rounded-xl px-4 py-3">
                                         <span className="material-symbols-outlined text-amber-400 text-[18px]">warning</span>
                                         <span className="text-amber-400 text-sm">No monitored paths configured. Add one in the <button onClick={() => setActiveTab('directories')} className="underline font-medium hover:text-amber-300">Monitored Paths</button> tab first.</span>
