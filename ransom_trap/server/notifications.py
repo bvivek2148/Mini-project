@@ -20,10 +20,13 @@ class NotificationDispatcher:
         msg = "🚨 *CRITICAL RANSOMWARE ALERT* 🚨\n\n" if is_ransomware else "⚠️ *SECURITY ALERT* ⚠️\n\n"
         
         msg += f"• *Host:* {alert.get('host', 'Unknown')}\n"
+        if alert.get("local_ip"):
+            msg += f"• *IP Address:* `{alert['local_ip']}`\n"
         msg += f"• *Target File:* `{alert.get('path', 'Unknown')}`\n"
         
         if is_ransomware:
-            msg += f"• *Malicious Process:* `{alert.get('process_name', 'Unknown')}` (PID: {alert.get('pid', 'Unknown')})\n"
+            pid = alert.get('pid')
+            msg += f"• *Malicious Process:* `{alert.get('process_name', 'Unknown')}` (PID: {pid if pid else 'Unknown'})\n"
             
             if "remote_ips" in alert and alert["remote_ips"]:
                 msg += f"• *Suspected C&C IPs:* {', '.join(alert['remote_ips'])}\n"
@@ -31,6 +34,12 @@ class NotificationDispatcher:
             msg += "\n*Mitigation Actions Taken:*\n"
             msg += f"• Process Terminated: {'✅ Yes' if alert.get('process_killed') else '❌ No'}\n"
             msg += f"• Folder Locked (Read-Only): {'✅ Yes' if alert.get('folder_locked') else '❌ No'}\n"
+            
+            quarantined = alert.get("quarantined_files", [])
+            if quarantined:
+                msg += f"• Files Quarantined: ✅ {len(quarantined)} file(s)\n"
+                for qf in quarantined[:5]:
+                    msg += f"  └ `{qf}`\n"
 
         return msg
 

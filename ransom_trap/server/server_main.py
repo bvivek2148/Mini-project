@@ -340,50 +340,148 @@ async def agent_stop() -> Dict[str, Any]:
 
 @app.post("/agent/simulate", response_class=JSONResponse)
 async def agent_simulate(req: SimulateRequest | None = None) -> Dict[str, Any]:
-    """Execute the simulated ransomware script AND directly create alerts."""
+    """Execute the simulated ransomware script AND perform full active response."""
     import time as _time
     import socket
+    import shutil
+    import threading
 
     script_path = BASE_DIR.parent / "test_files" / "simulate_ransomware.py"
     if not script_path.exists():
         return JSONResponse({"error": "Simulation script not found"}, status_code=404)
         
     target_dir = req.target_dir if hasattr(req, 'target_dir') and req.target_dir else str(BASE_DIR.parent / "test_files")
-    
-    # 1. Run the actual simulation script in the background
+
+    # ── Load config for active response settings ──
+    cfg = _load_config_raw()
+    detection_cfg = cfg.get("detection", {})
+    kill_on_detection = bool(detection_cfg.get("kill_on_detection", False))
+
+    # ── 1. Launch the simulation process ──
+    sim_proc = None
     try:
-        subprocess.Popen(
+        sim_proc = subprocess.Popen(
             [sys.executable, str(script_path), target_dir],
             cwd=str(BASE_DIR.parent / "test_files")
         )
+        print(f"[SIMULATE] Ransomware script launched with PID={sim_proc.pid}")
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-    # 2. Directly create a ransomware alert so the dashboard always shows it
+    sim_pid = sim_proc.pid
+
+    # ── 2. Resolve local IP address ──
+    local_ip = "127.0.0.1"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0.5)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+
     hostname = socket.gethostname()
+
+    # ── 3. Wait briefly for the simulation to start writing files ──
+    import time as _t
+    _t.sleep(2)
+
+    # ── 4. Auto-Kill: Terminate the malicious process ──
+    process_killed = False
+    if kill_on_detection and sim_pid:
+        try:
+            import psutil
+            proc = psutil.Process(sim_pid)
+            proc_name = proc.name()
+            print(f"[AUTO-KILL] Terminating malicious process: {proc_name} (PID={sim_pid})")
+            proc.terminate()
+            try:
+                proc.wait(timeout=3)
+            except psutil.TimeoutExpired:
+                proc.kill()
+            process_killed = True
+            print(f"[AUTO-KILL] ✅ Process {sim_pid} terminated successfully")
+        except Exception as e:
+            print(f"[AUTO-KILL] ❌ Failed to kill PID={sim_pid}: {e}")
+
+    # ── 5. Folder Lockdown: Restrict write access ──
+    folder_locked = False
+    try:
+        from agent.containment import ContainmentHandler
+        containment = ContainmentHandler()
+        folder_locked = containment.lock_folder(target_dir)
+        if folder_locked:
+            print(f"[LOCKDOWN] ✅ Folder locked: {target_dir}")
+        else:
+            print(f"[LOCKDOWN] ❌ Failed to lock folder: {target_dir}")
+    except Exception as e:
+        print(f"[LOCKDOWN] ❌ Error: {e}")
+
+    # ── 6. Auto-Quarantine: Move suspicious (high-entropy) files ──
+    quarantine_dir = BASE_DIR / "data" / "quarantine"
+    quarantine_dir.mkdir(parents=True, exist_ok=True)
+    quarantined_files = []
+    try:
+        from agent.entropy import compute_shannon_entropy
+        threshold = float(detection_cfg.get("entropy_threshold", 7.0))
+        target_path = Path(target_dir)
+        for fpath in target_path.iterdir():
+            if fpath.is_file() and not fpath.name.endswith(('.py', '.bak')):
+                entropy = compute_shannon_entropy(str(fpath))
+                if entropy is not None and entropy >= threshold:
+                    dest = quarantine_dir / fpath.name
+                    try:
+                        # Unlock write permissions before moving (may have been locked above)
+                        import os, stat
+                        os.chmod(str(fpath), stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+                    except Exception:
+                        pass
+                    try:
+                        shutil.move(str(fpath), str(dest))
+                        quarantined_files.append(fpath.name)
+                        print(f"[QUARANTINE] ✅ Quarantined: {fpath.name} (entropy={entropy:.2f})")
+                    except Exception as qe:
+                        print(f"[QUARANTINE] ❌ Failed to move {fpath.name}: {qe}")
+    except Exception as e:
+        print(f"[QUARANTINE] ❌ Error during quarantine scan: {e}")
+
+    # ── 7. Build the enriched alert ──
     alert = {
         "alert_type": "ransomware_suspected",
         "host": hostname,
-        "pid": None,
+        "pid": sim_pid,
         "process_name": "simulate_ransomware.py",
         "timestamp": _time.time(),
         "path": target_dir,
-        "process_killed": False,
-        "folder_locked": False,
+        "local_ip": local_ip,
+        "process_killed": process_killed,
+        "folder_locked": folder_locked,
+        "quarantined_files": quarantined_files,
         "details": {
             "source": "simulation",
             "message": f"Ransomware simulation triggered on {target_dir}",
+            "auto_kill_enabled": kill_on_detection,
+            "files_quarantined": len(quarantined_files),
         },
     }
     storage.add_alert(alert)
-    print(f"[SIMULATE] Alert created and stored: {alert['alert_type']} on {hostname}")
+    print(f"[SIMULATE] ✅ Alert created: PID={sim_pid}, IP={local_ip}, killed={process_killed}, locked={folder_locked}, quarantined={len(quarantined_files)} files")
 
-    # 3. Dispatch notifications (Telegram, email, etc.) in background
-    import threading
+    # ── 8. Dispatch notifications (Telegram, email, etc.) ──
     threading.Thread(target=_dispatch_notifications, args=(alert,), daemon=True).start()
     print("[SIMULATE] Notification dispatch triggered")
 
-    return {"status": "started", "message": f"Simulation triggered on {target_dir}", "alert_created": True}
+    return {
+        "status": "started",
+        "message": f"Simulation triggered on {target_dir}",
+        "alert_created": True,
+        "pid": sim_pid,
+        "ip": local_ip,
+        "process_killed": process_killed,
+        "folder_locked": folder_locked,
+        "quarantined_files": quarantined_files,
+    }
 
 @app.post("/agent/simulate/undo", response_class=JSONResponse)
 async def agent_simulate_undo(req: SimulateRequest | None = None) -> Dict[str, Any]:
