@@ -729,7 +729,7 @@ export default function DashboardOverviewPage() {
 
                     {/* menu items */}
                     {[
-                      { icon: 'manage_accounts', label: 'My Profile', fn: () => setShowProfile(false) },
+                      { icon: 'manage_accounts', label: 'My Profile', fn: () => { setShowProfile(false); navigate('/profile') } },
                       { icon: 'group', label: 'User Management', fn: () => { setShowProfile(false); navigate('/users') } },
                       { icon: 'settings', label: 'Settings', fn: () => { setShowProfile(false); navigate('/settings') } },
                     ].map(item => (

@@ -447,7 +447,6 @@ export default function SystemSettingsPage() {
               onClick={() => setTab(t.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '14px 18px',
-                borderBottom: `2.5px solid ${active ? (isDanger ? '#f87171' : '#818cf8') : 'transparent'}`,
                 background: 'transparent', border: 'none',
                 borderBottom: `2.5px solid ${active ? (isDanger ? '#f87171' : '#818cf8') : 'transparent'}`,
                 color: active ? (isDanger ? '#f87171' : '#c5d9f0') : (isDanger ? '#f87171' : '#4a6580'),

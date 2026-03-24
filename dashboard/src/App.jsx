@@ -12,7 +12,8 @@ import ReportsPage from './pages/ReportsPage.jsx'
 import ProcessTerminationLogPage from './pages/ProcessTerminationLogPage.jsx'
 import HoneytokenManagementPage from './pages/HoneytokenManagementPage.jsx'
 import HoneytokenAccessLogsPage from './pages/HoneytokenAccessLogsPage.jsx'
-import { UserManagementPage } from './pages/Placeholders.jsx'
+import UserManagementPage from './pages/UserManagementPage.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
 import AnalystsPage from './pages/AnalystsPage.jsx'
 import ManualScanPage from './pages/ManualScanPage.jsx'
 
@@ -34,6 +35,7 @@ function App() {
         <Route path="/accesslogs" element={<HoneytokenAccessLogsPage />} />
         <Route path="/honeytokens" element={<HoneytokenManagementPage />} />
         <Route path="/users" element={<UserManagementPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/Incidents/analysts" element={<AnalystsPage />} />
         <Route path="/settings" element={<SystemSettingsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
