@@ -56,6 +56,21 @@ body {
   100% { transform: translateX(100%); }
 }
 
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 6px currentColor; }
+  50% { opacity: 0.6; box-shadow: 0 0 18px currentColor; }
+}
+
+@keyframes scan-line {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* — Gradient text utility ————————————————— */
 .text-gradient {
   background: linear-gradient(135deg, #e2e8f0 0%, #94b8db 50%, #7c9fc2 100%);

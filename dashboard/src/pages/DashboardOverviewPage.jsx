@@ -9,40 +9,75 @@ function formatTs(ts) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
+function LiveClock() {
+  const [time, setTime] = useState(new Date())
+  useEffect(() => {
+    const id = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return (
+    <span className="font-mono tabular-nums">
+      {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+    </span>
+  )
+}
+
+const NAV_ITEMS = [
+  { to: '/',                         icon: 'dashboard',        label: 'Overview'         },
+  { to: '/scan',                     icon: 'document_scanner', label: 'Manual Scan'      },
+  { to: '/Incidents',                icon: 'warning',          label: 'Incidents'        },
+  { to: '/entropy',                  icon: 'ssid_chart',       label: 'Entropy Analysis' },
+  { to: '/network',                  icon: 'hub',              label: 'Network Topology' },
+  { to: '/honeytokens',              icon: 'bug_report',       label: 'Honeytokens'      },
+  { to: '/reports',                  icon: 'description',      label: 'Reports'          },
+]
+
+const QUICK_ACTIONS = [
+  { to: '/scan',        icon: 'document_scanner', label: 'Run Scan',    color: 'blue'    },
+  { to: '/Incidents',   icon: 'warning',          label: 'Incidents',   color: 'red'     },
+  { to: '/entropy',     icon: 'ssid_chart',       label: 'Entropy',     color: 'indigo'  },
+  { to: '/network',     icon: 'hub',              label: 'Network',     color: 'cyan'    },
+  { to: '/honeytokens', icon: 'bug_report',       label: 'Honeytokens', color: 'amber'   },
+  { to: '/reports',     icon: 'description',      label: 'Reports',     color: 'emerald' },
+]
+
+const COLOR_MAP = {
+  blue:    { bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    text: 'text-blue-400'    },
+  red:     { bg: 'bg-red-500/10',     border: 'border-red-500/20',     text: 'text-red-400'     },
+  indigo:  { bg: 'bg-indigo-500/10',  border: 'border-indigo-500/20',  text: 'text-indigo-400'  },
+  cyan:    { bg: 'bg-cyan-500/10',    border: 'border-cyan-500/20',    text: 'text-cyan-400'    },
+  amber:   { bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   text: 'text-amber-400'   },
+  emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', text: 'text-emerald-400' },
+}
+
 export default function DashboardOverviewPage() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const { alerts, loading, error } = useAlerts(5000)
 
-  // Agent start/stop state
-  const [agentRunning, setAgentRunning] = useState(false)
+  const [agentRunning, setAgentRunning]   = useState(false)
   const [agentToggling, setAgentToggling] = useState(false)
-
-  // Header state
-  const [showNotifications, setShowNotifications] = useState(false)
+  const [showNotif, setShowNotif]         = useState(false)
   const notifRef = useRef(null)
 
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (notifRef.current && !notifRef.current.contains(event.target)) {
-        setShowNotifications(false)
-      }
+    function handleOutside(e) {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotif(false)
     }
-    document.addEventListener("mousedown", handleClickOutside)
-    return () => document.removeEventListener("mousedown", handleClickOutside)
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
   }, [])
 
-  // Poll agent status every 5 seconds
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false
-    async function pollStatus() {
+    async function poll() {
       try {
         const s = await fetchAgentStatus()
         if (!cancelled) setAgentRunning(s.running)
       } catch { /* server may not be up yet */ }
     }
-    pollStatus()
-    const id = setInterval(pollStatus, 5000)
+    poll()
+    const id = setInterval(poll, 5000)
     return () => { cancelled = true; clearInterval(id) }
   }, [])
 
@@ -50,38 +85,30 @@ export default function DashboardOverviewPage() {
     if (agentToggling) return
     setAgentToggling(true)
     try {
-      if (agentRunning) {
-        await agentStop()
-        setAgentRunning(false)
-      } else {
-        await agentStart()
-        setAgentRunning(true)
-      }
-    } catch (e) {
-      console.error('Agent toggle failed:', e)
-    } finally {
-      setAgentToggling(false)
-    }
+      if (agentRunning) { await agentStop(); setAgentRunning(false) }
+      else              { await agentStart(); setAgentRunning(true)  }
+    } catch (e) { console.error('Agent toggle failed:', e) }
+    finally { setAgentToggling(false) }
   }
 
   const ransomwareAlerts = alerts.filter(a => a.alert_type === 'ransomware_suspected')
   const honeytokenAlerts = alerts.filter(a => a.alert_type === 'honeytoken_access')
-  const recentAlerts = [...alerts].reverse().slice(0, 3)
+  const recentAlerts     = [...alerts].reverse().slice(0, 5)
 
-  // ── Timeline chart data (last 60 min, 12 x 5-min buckets) ─────────────────
   const timelineBuckets = React.useMemo(() => {
     const now = Date.now() / 1000
-    const buckets = Array.from({ length: 12 }, (_, i) => ({ label: `${(11 - i) * 5}m`, count: 0, start: now - (12 - i) * 300, end: now - (11 - i) * 300 }))
+    const buckets = Array.from({ length: 12 }, (_, i) => ({
+      label: `${(11 - i) * 5}m`, count: 0,
+      start: now - (12 - i) * 300, end: now - (11 - i) * 300,
+    }))
     alerts.forEach(a => {
-      const ts = a.timestamp || 0
-      const b = buckets.find(b => ts >= b.start && ts < b.end)
+      const b = buckets.find(b => (a.timestamp || 0) >= b.start && (a.timestamp || 0) < b.end)
       if (b) b.count++
     })
     return buckets
   }, [alerts])
   const maxBucket = Math.max(1, ...timelineBuckets.map(b => b.count))
 
-  // ── Per-host breakdown ─────────────────────────────────────────────────────
   const hostMap = React.useMemo(() => {
     const map = {}
     alerts.forEach(a => {
@@ -95,560 +122,561 @@ export default function DashboardOverviewPage() {
     return Object.values(map).sort((a, b) => b.total - a.total)
   }, [alerts])
 
+  const securityScore  = ransomwareAlerts.length > 0 ? 62 : agentRunning ? 94 : 28
+  const scoreColor     = ransomwareAlerts.length > 0 ? '#f59e0b' : agentRunning ? '#10b981' : '#ef4444'
+  const scoreColorAlt  = ransomwareAlerts.length > 0 ? '#f97316' : agentRunning ? '#06b6d4' : '#dc2626'
+  const scoreLabel     = ransomwareAlerts.length > 0 ? 'Elevated Risk' : agentRunning ? 'Protected' : 'Unprotected'
+  const scoreLabelCls  = ransomwareAlerts.length > 0 ? 'text-amber-400' : agentRunning ? 'text-emerald-400' : 'text-red-400'
+  const scoreDash      = securityScore * 3.39
+
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#060a10]">
-      {sidebarOpen ? (
-        <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden="true"
-        />
-      ) : null}
+    <div className="flex h-screen w-full overflow-hidden" style={{ background: '#05080f' }}>
 
-      <aside
-        className={`w-[240px] flex-col bg-[#070c14] flex fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:static lg:translate-x-0 border-r border-white/[0.04] ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-          }`}
-      >
-        <div className="flex h-full flex-col p-3">
+      {/* ── Mobile overlay ── */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+      )}
+
+      {/* ════════════════════════════════════
+          SIDEBAR
+      ════════════════════════════════════ */}
+      <aside className={`w-[256px] flex-col bg-[#070c15] flex fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:static lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
+
+        <div className="flex h-full flex-col px-3 py-4">
+
           {/* Brand */}
-          <div className="flex items-center gap-2.5 px-3 py-3 mb-1">
-            <div className="size-8 rounded-lg bg-primary/15 flex items-center justify-center">
-              <svg className="size-5 text-primary" fill="none" viewBox="0 0 48 48"><path d="M24 4L6 12V22C6 33.5 13.7 44.1 24 46C34.3 44.1 42 33.5 42 22V12L24 4Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4"/><path d="M24 14V34" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4"/><path d="M14 24H34" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4"/></svg>
+          <div className="flex items-center gap-3 px-3 py-2 mb-5">
+            <div className="size-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.25),rgba(99,102,241,0.15))', border: '1px solid rgba(59,130,246,0.2)' }}>
+              <svg className="size-5" fill="none" viewBox="0 0 48 48" style={{ color: '#60a5fa' }}>
+                <path d="M24 4L6 12V22C6 33.5 13.7 44.1 24 46C34.3 44.1 42 33.5 42 22V12L24 4Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5"/>
+                <path d="M16 24l5 5 11-10" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5"/>
+              </svg>
             </div>
-            <span className="text-white text-[15px] font-black tracking-tight">Ransom Trap</span>
-          </div>
-
-          {/* Profile */}
-          <div className="flex items-center gap-2.5 px-3 py-2.5 mb-4 rounded-lg bg-white/[0.03] border border-white/[0.04]">
-            <div
-              className="bg-center bg-no-repeat bg-cover rounded-full size-8 border border-white/10 shrink-0"
-              style={{
-                backgroundImage:
-                  'url("https://lh3.googleusercontent.com/aida-public/AB6AXuDYBVma9FFsfv7iby7buy_M4M5gS_w8bo7i4Bp_owrVhnc6iR8SsMT24-MkJIrQjwi55aiRCKIXI9oqbVfbLCqtoVMWFUpP3xR9_bf23OyYhUJuqglxMebPo_mw9s1soInDNyWsEO4HWV7u-yYuco7mJZ6AaXpK_Do9eXnZQLPha9-ZnhM7IczBs6Ql-rCcCxvLmdHS0MDxspxe-EI9x-7HmEZKzvjjM0O7Eq4-kAvj-zu24C1KIVz2SfMdBF0AtwKklQsiraQfTCY")',
-              }}
-            />
-            <div className="flex flex-col min-w-0">
-              <p className="text-white text-[12px] font-semibold truncate">Admin Console</p>
-              <p className="text-[#334b63] text-[10px] truncate">Security Ops Lead</p>
+            <div>
+              <p className="text-white text-[14px] font-black tracking-tight leading-tight">Ransom Trap</p>
+              <p className="text-[10px] font-semibold" style={{ color: '#3b82f6' }}>SOC Dashboard</p>
             </div>
           </div>
 
-          {/* Nav Label */}
-          <p className="text-[#263446] text-[9px] font-bold uppercase tracking-[0.15em] px-3 mb-1.5">Navigation</p>
+          {/* Agent status pill */}
+          <button onClick={handleAgentToggle} disabled={agentToggling}
+            className="flex items-center gap-2.5 mx-0 mb-4 px-3 py-2.5 rounded-xl transition-all disabled:opacity-50"
+            style={{
+              background: agentRunning ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+              border: agentRunning ? '1px solid rgba(16,185,129,0.18)' : '1px solid rgba(239,68,68,0.18)',
+            }}>
+            <span className="relative flex size-2">
+              {agentRunning && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#10b981' }} />}
+              <span className="relative inline-flex rounded-full size-2" style={{ background: agentRunning ? '#10b981' : '#ef4444' }} />
+            </span>
+            <div className="flex-1 text-left">
+              <p className="text-[11px] font-bold" style={{ color: agentRunning ? '#34d399' : '#f87171' }}>
+                Agent {agentToggling ? 'Switching…' : agentRunning ? 'Online' : 'Offline'}
+              </p>
+              <p className="text-[9px]" style={{ color: agentRunning ? 'rgba(52,211,153,0.55)' : 'rgba(248,113,113,0.55)' }}>
+                {agentRunning ? 'Click to stop' : 'Click to start'}
+              </p>
+            </div>
+            <span className="material-symbols-outlined text-[14px]" style={{ color: agentRunning ? '#34d399' : '#f87171' }}>
+              {agentRunning ? 'stop_circle' : 'play_circle'}
+            </span>
+          </button>
 
-          {/* Nav Items */}
+          {/* Nav label */}
+          <p className="px-3 mb-2 text-[9px] font-bold uppercase tracking-[0.18em]" style={{ color: '#1e3048' }}>Main Menu</p>
+
+          {/* Nav items */}
           <nav className="flex flex-col gap-0.5 flex-1">
-            {[
-              { to: '/', icon: 'dashboard', label: 'Overview', active: true },
-              { to: '/scan', icon: 'document_scanner', label: 'Manual Scan' },
-              { to: '/Incidents', icon: 'warning', label: 'Incidents' },
-              { to: '/entropy', icon: 'ssid_chart', label: 'Entropy Analysis' },
-              { to: '/network', icon: 'hub', label: 'Network Topology' },
-              { to: '/honeytokens', icon: 'bug_report', label: 'Honeytokens' },
-              { to: '/reports', icon: 'description', label: 'Reports' },
-            ].map(item => (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all ${item.active
-                  ? 'bg-primary/15 text-white border border-primary/20'
-                  : 'text-[#556980] hover:text-white hover:bg-white/[0.04]'
-                }`}
-                onClick={() => setSidebarOpen(false)}
-              >
-                <span className={`material-symbols-outlined text-[18px] ${item.active ? 'text-primary' : ''}`}>{item.icon}</span>
-                {item.label}
-              </Link>
-            ))}
+            {NAV_ITEMS.map(item => {
+              const active = item.to === '/'
+              return (
+                <Link key={item.to} to={item.to}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all"
+                  style={active ? {
+                    background: 'linear-gradient(135deg,rgba(59,130,246,0.18),rgba(99,102,241,0.1))',
+                    border: '1px solid rgba(59,130,246,0.2)',
+                    color: '#fff',
+                  } : {
+                    color: '#4a6580',
+                    border: '1px solid transparent',
+                  }}
+                  onClick={() => setSidebarOpen(false)}>
+                  <span className="material-symbols-outlined text-[17px]"
+                    style={{ color: active ? '#60a5fa' : undefined }}>{item.icon}</span>
+                  {item.label}
+                  {active && <span className="ml-auto size-1.5 rounded-full" style={{ background: '#60a5fa' }} />}
+                </Link>
+              )
+            })}
           </nav>
 
-          {/* Bottom */}
-          <div className="flex flex-col gap-0.5 pt-3 mt-auto border-t border-white/[0.04]">
-            <Link
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-[#556980] hover:text-white hover:bg-white/[0.04] transition-all"
-              to="/settings"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <span className="material-symbols-outlined text-[18px]">settings</span>
+          {/* Bottom nav */}
+          <div className="pt-3 flex flex-col gap-0.5" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+            <Link to="/settings"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all"
+              style={{ color: '#4a6580' }}
+              onClick={() => setSidebarOpen(false)}>
+              <span className="material-symbols-outlined text-[17px]">settings</span>
               Settings
             </Link>
-            <button
-              className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium text-[#556980] hover:text-red-400 hover:bg-red-500/[0.06] transition-all text-left"
-              type="button"
-              onClick={() => {
-                setSidebarOpen(false)
-                navigate('/login', { replace: true })
-              }}
-            >
-              <span className="material-symbols-outlined text-[18px]">logout</span>
+            <button type="button"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all text-left"
+              style={{ color: '#4a6580' }}
+              onClick={() => { setSidebarOpen(false); navigate('/login', { replace: true }) }}>
+              <span className="material-symbols-outlined text-[17px]">logout</span>
               Logout
             </button>
           </div>
+
         </div>
       </aside>
-      <main className="flex-1 flex flex-col h-full min-w-0 bg-[#060a10] overflow-hidden">
-        <header className="flex items-center justify-between border-b border-white/[0.04] bg-[#070c14]/80 backdrop-blur-xl px-5 py-3 shrink-0">
-          <div className="flex items-center gap-3 w-full max-w-xl">
-            <button
-              className="lg:hidden text-[#556980] hover:text-white transition-colors"
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open sidebar"
-            >
+
+      {/* ════════════════════════════════════
+          MAIN CONTENT
+      ════════════════════════════════════ */}
+      <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden" style={{ background: '#05080f' }}>
+
+        {/* ── TOPBAR ── */}
+        <header className="flex items-center justify-between px-5 py-3 shrink-0"
+          style={{ background: 'rgba(7,12,21,0.85)', borderBottom: '1px solid rgba(255,255,255,0.04)', backdropFilter: 'blur(20px)' }}>
+
+          <div className="flex items-center gap-3">
+            {/* Mobile menu */}
+            <button className="lg:hidden transition-colors" style={{ color: '#4a6580' }}
+              onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
               <span className="material-symbols-outlined text-[22px]">menu</span>
             </button>
-            <label className="hidden md:flex flex-1 max-w-md">
-              <div className="flex w-full items-center rounded-lg h-9 bg-white/[0.04] border border-white/[0.06] focus-within:border-primary/40 transition-all">
-                <span className="material-symbols-outlined text-[16px] text-[#334b63] ml-3 mr-2">search</span>
-                <input
-                  className="w-full bg-transparent text-white placeholder:text-[#334b63] focus:outline-none text-[12px] pr-3"
-                  placeholder="Search IP, Hash, or Hostname..."
-                />
-              </div>
-            </label>
+
+            {/* Search */}
+            <div className="hidden md:flex items-center gap-2 h-9 px-3 rounded-xl w-72 transition-all"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <span className="material-symbols-outlined text-[15px]" style={{ color: '#2a3f56' }}>search</span>
+              <input className="flex-1 bg-transparent text-[12px] focus:outline-none"
+                style={{ color: '#fff' }}
+                placeholder="Search alerts, hosts, hashes…"
+                onFocus={e => e.target.parentElement.style.borderColor = 'rgba(59,130,246,0.35)'}
+                onBlur={e => e.target.parentElement.style.borderColor = 'rgba(255,255,255,0.06)'}
+              />
+              <kbd className="text-[9px] px-1.5 py-0.5 rounded font-mono hidden xl:inline"
+                style={{ background: 'rgba(255,255,255,0.04)', color: '#2a3f56', border: '1px solid rgba(255,255,255,0.06)' }}>⌘K</kbd>
+            </div>
           </div>
+
           <div className="flex items-center gap-2">
-            {/* Agent Status Pill */}
-            <div className="hidden sm:flex items-center gap-2 mr-1">
-              <button
-                onClick={handleAgentToggle}
-                disabled={agentToggling}
-                className={`flex items-center gap-1.5 h-7 px-3 rounded-full text-[10px] font-bold transition-all disabled:opacity-50 ${agentRunning
-                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 hover:bg-emerald-500/20'
-                  : 'bg-red-500/10 text-red-400 border border-red-500/15 hover:bg-red-500/20'}`}
-              >
-                <span className={`size-1.5 rounded-full ${agentRunning ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-                {agentToggling ? '...' : agentRunning ? 'ONLINE' : 'OFFLINE'}
-              </button>
+
+            {/* Live clock */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <span className="size-1.5 rounded-full animate-pulse" style={{ background: '#10b981' }} />
+              <span className="text-[11px]" style={{ color: '#3a5472' }}><LiveClock /></span>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-1 relative">
-              {/* Notifications */}
-              <div className="relative" ref={notifRef}>
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative flex size-8 items-center justify-center rounded-lg text-[#556980] hover:text-white hover:bg-white/[0.04] transition-all"
-                  title="Notifications"
-                >
-                  <span className="material-symbols-outlined text-[18px]">notifications</span>
-                  {recentAlerts.length > 0 && (
-                    <span className="absolute top-1 right-1 size-2 rounded-full bg-red-500" />
-                  )}
-                </button>
-
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-[400px] bg-[#0a1118] border border-white/[0.06] rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden" style={{ animation: 'fadeInScale 0.2s ease-out' }}>
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.04]">
-                      <div className="flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[16px] text-primary">notifications_active</span>
-                        <h3 className="text-white font-bold text-[13px]">Notifications</h3>
-                      </div>
-                      <span className="text-[9px] font-bold text-[#334b63] bg-white/[0.03] px-2 py-0.5 rounded tracking-wider">{recentAlerts.length} NEW</span>
-                    </div>
-
-                    <div className="max-h-[400px] overflow-y-auto">
-                      {recentAlerts.length === 0 ? (
-                        <div className="p-8 text-center">
-                          <span className="material-symbols-outlined text-3xl text-[#1e2a3a] mb-2 block">notifications_off</span>
-                          <p className="text-[#334b63] text-xs">No recent alerts</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col">
-                          {recentAlerts.map((alert, i) => {
-                            const isRansomware = alert.alert_type === 'ransomware_suspected'
-                            return (
-                              <div key={i} className={`border-l-2 ${isRansomware ? 'border-l-red-500' : 'border-l-amber-500'} border-b border-b-white/[0.03] hover:bg-white/[0.02] transition-all cursor-pointer`}>
-                                <div className="px-4 py-3">
-                                  <div className="flex items-start gap-2.5">
-                                    <div className={`size-7 rounded-lg shrink-0 flex items-center justify-center ${isRansomware ? 'bg-red-500/10' : 'bg-amber-500/10'}`}>
-                                      <span className={`material-symbols-outlined text-[14px] ${isRansomware ? 'text-red-400' : 'text-amber-400'}`}>
-                                        {isRansomware ? 'shield' : 'key'}
-                                      </span>
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <span className="text-white text-[12px] font-medium truncate">
-                                          {isRansomware ? 'Ransomware Detected' : 'Honeytoken Accessed'}
-                                        </span>
-                                        <span className="text-[#263446] text-[9px] font-mono shrink-0">
-                                          {alert.timestamp ? new Date(alert.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2 mt-1 text-[10px] text-[#334b63]">
-                                        <span className="font-mono">{alert.host || '—'}</span>
-                                        {alert.process_name && <><span className="text-[#1e2a3a]">·</span><span className="font-mono">{alert.process_name}</span></>}
-                                      </div>
-                                      {isRansomware && (
-                                        <div className="flex gap-1.5 mt-1.5">
-                                          {alert.process_killed !== undefined && (
-                                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${alert.process_killed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                                              {alert.process_killed ? 'Killed' : 'Active'}
-                                            </span>
-                                          )}
-                                          {alert.folder_locked !== undefined && (
-                                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${alert.folder_locked ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                                              {alert.folder_locked ? 'Locked' : 'Open'}
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <Link
-                      to="/alerts"
-                      onClick={() => setShowNotifications(false)}
-                      className="flex items-center justify-center gap-1.5 px-4 py-2.5 border-t border-white/[0.04] text-primary text-[10px] font-bold uppercase tracking-wider hover:bg-white/[0.02] transition-colors"
-                    >
-                      View All <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
-                    </Link>
-                  </div>
+            {/* Notifications */}
+            <div className="relative" ref={notifRef}>
+              <button onClick={() => setShowNotif(!showNotif)}
+                className="relative flex size-9 items-center justify-center rounded-xl transition-all"
+                style={{ color: '#4a6580', background: showNotif ? 'rgba(255,255,255,0.06)' : 'transparent' }}>
+                <span className="material-symbols-outlined text-[19px]">notifications</span>
+                {recentAlerts.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 size-2 rounded-full" style={{ background: '#ef4444', boxShadow: '0 0 6px rgba(239,68,68,0.7)' }} />
                 )}
-              </div>
+              </button>
 
-              <button onClick={() => window.location.reload()} className="flex size-8 items-center justify-center rounded-lg text-[#556980] hover:text-white hover:bg-white/[0.04] transition-all" title="Refresh">
-                <span className="material-symbols-outlined text-[18px]">refresh</span>
-              </button>
-              <button className="hidden sm:flex size-8 items-center justify-center rounded-lg text-[#556980] hover:text-white hover:bg-white/[0.04] transition-all" title="Settings">
-                <span className="material-symbols-outlined text-[18px]">tune</span>
-              </button>
+              {showNotif && (
+                <div className="absolute right-0 mt-2 w-[380px] rounded-2xl shadow-2xl z-50 overflow-hidden"
+                  style={{ background: '#0a1120', border: '1px solid rgba(255,255,255,0.07)', animation: 'fadeInScale 0.18s ease-out', boxShadow: '0 25px 60px rgba(0,0,0,0.6)' }}>
+                  <div className="flex items-center justify-between px-4 py-3.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[16px]" style={{ color: '#60a5fa' }}>notifications_active</span>
+                      <span className="text-white font-bold text-[13px]">Notifications</span>
+                    </div>
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: recentAlerts.length > 0 ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)', color: recentAlerts.length > 0 ? '#f87171' : '#3a5472' }}>
+                      {recentAlerts.length} NEW
+                    </span>
+                  </div>
+                  <div className="max-h-[360px] overflow-y-auto">
+                    {recentAlerts.length === 0 ? (
+                      <div className="py-12 flex flex-col items-center gap-2">
+                        <span className="material-symbols-outlined text-3xl" style={{ color: '#1a2b3c' }}>notifications_off</span>
+                        <p className="text-xs" style={{ color: '#2a3f56' }}>No recent alerts</p>
+                      </div>
+                    ) : recentAlerts.map((alert, i) => {
+                      const isR = alert.alert_type === 'ransomware_suspected'
+                      return (
+                        <div key={i} className="flex items-start gap-3 px-4 py-3 transition-all cursor-pointer"
+                          style={{ borderLeft: `2px solid ${isR ? '#ef4444' : '#f59e0b'}`, borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <div className="size-8 rounded-lg shrink-0 flex items-center justify-center mt-0.5"
+                            style={{ background: isR ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)' }}>
+                            <span className="material-symbols-outlined text-[14px]" style={{ color: isR ? '#f87171' : '#fbbf24' }}>
+                              {isR ? 'shield' : 'key'}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-white text-[12px] font-semibold">{isR ? 'Ransomware Detected' : 'Honeytoken Accessed'}</span>
+                              <span className="text-[9px] font-mono shrink-0" style={{ color: '#2a3f56' }}>{formatTs(alert.timestamp)}</span>
+                            </div>
+                            <p className="text-[10px] mt-0.5 font-mono" style={{ color: '#3a5472' }}>{alert.host || '—'}{alert.process_name && ` · ${alert.process_name}`}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <Link to="/alerts" onClick={() => setShowNotif(false)}
+                    className="flex items-center justify-center gap-1.5 py-3 text-[11px] font-bold uppercase tracking-widest transition-colors"
+                    style={{ borderTop: '1px solid rgba(255,255,255,0.05)', color: '#60a5fa' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.06)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    View All Alerts
+                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            {/* Refresh */}
+            <button onClick={() => window.location.reload()}
+              className="flex size-9 items-center justify-center rounded-xl transition-all"
+              style={{ color: '#4a6580' }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#4a6580'; e.currentTarget.style.background = 'transparent' }}
+              title="Refresh">
+              <span className="material-symbols-outlined text-[19px]">refresh</span>
+            </button>
+
+            {/* Profile avatar */}
+            <div className="size-9 rounded-xl overflow-hidden ml-1 cursor-pointer ring-2 ring-transparent hover:ring-blue-500/40 transition-all"
+              style={{ background: 'linear-gradient(135deg,#1e3a5f,#0f2340)' }}>
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="material-symbols-outlined text-[18px]" style={{ color: '#60a5fa' }}>person</span>
+              </div>
             </div>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto scroll-smooth relative">
-          {/* ── Animated Background Mesh ── */}
-          <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" style={{left: '240px'}}>
-            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-blue-600/[0.03] blur-[120px]" style={{animation: 'float 20s ease-in-out infinite'}} />
-            <div className="absolute top-[30%] right-[-5%] w-[500px] h-[500px] rounded-full bg-indigo-500/[0.03] blur-[120px]" style={{animation: 'float 25s ease-in-out infinite 5s'}} />
-            <div className="absolute bottom-[-10%] left-[30%] w-[400px] h-[400px] rounded-full bg-emerald-500/[0.02] blur-[100px]" style={{animation: 'float 22s ease-in-out infinite 10s'}} />
+
+        {/* ── SCROLLABLE BODY ── */}
+        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.06) transparent' }}>
+
+          {/* Ambient blobs */}
+          <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" style={{ left: '256px' }}>
+            <div className="absolute rounded-full" style={{ top: '-15%', left: '-5%', width: 700, height: 700, background: 'radial-gradient(circle,rgba(59,130,246,0.04) 0%,transparent 70%)', animation: 'float 22s ease-in-out infinite' }} />
+            <div className="absolute rounded-full" style={{ top: '40%', right: '-8%', width: 550, height: 550, background: 'radial-gradient(circle,rgba(99,102,241,0.035) 0%,transparent 70%)', animation: 'float 28s ease-in-out infinite 6s' }} />
+            <div className="absolute rounded-full" style={{ bottom: '-10%', left: '35%', width: 450, height: 450, background: 'radial-gradient(circle,rgba(16,185,129,0.025) 0%,transparent 70%)', animation: 'float 24s ease-in-out infinite 12s' }} />
           </div>
 
-          <div className="relative z-10 p-4 md:p-6 lg:p-10">
-          <div className="mx-auto flex flex-col max-w-[1200px] gap-6">
+          <div className="relative z-10 p-5 md:p-7 lg:p-10 max-w-[1280px] mx-auto flex flex-col gap-7">
 
-            {/* ── PAGE HEADER ── */}
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="h-px w-8 bg-gradient-to-r from-primary to-transparent" />
-                  <p className="text-primary/70 text-[10px] font-bold tracking-[0.2em] uppercase">Security Operations Center</p>
+            {/* ════ HERO HEADER ════ */}
+            <div className="flex flex-wrap items-start justify-between gap-5">
+              <div>
+                <div className="flex items-center gap-2.5 mb-3">
+                  <div className="h-px w-10 rounded" style={{ background: 'linear-gradient(90deg,#3b82f6,transparent)' }} />
+                  <span className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: 'rgba(96,165,250,0.7)' }}>Security Operations Center</span>
                 </div>
-                <h1 className="text-gradient text-4xl md:text-5xl font-black tracking-tighter leading-[0.95]">Dashboard<br/>Overview</h1>
-                <p className="text-[#334b63] text-[13px] mt-1 flex items-center gap-2">
-                  Monitoring <span className="text-white/80 font-semibold">{hostMap.length}</span> endpoint{hostMap.length !== 1 ? 's' : ''} · <span className="text-white/80 font-semibold">{alerts.length}</span> alert{alerts.length !== 1 ? 's' : ''} today
-                </p>
+                <h1 className="font-black tracking-tight leading-none mb-3" style={{ fontSize: 'clamp(2rem,4vw,3.2rem)', background: 'linear-gradient(135deg,#e2e8f0 0%,#93c5fd 50%,#818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                  Dashboard Overview
+                </h1>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="flex items-center gap-1.5 text-[12px]" style={{ color: '#4a6580' }}>
+                    <span className="material-symbols-outlined text-[14px]" style={{ color: '#60a5fa' }}>computer</span>
+                    <span className="text-white/70 font-semibold">{hostMap.length}</span> endpoint{hostMap.length !== 1 ? 's' : ''} monitored
+                  </span>
+                  <span style={{ color: '#1e3048' }}>·</span>
+                  <span className="flex items-center gap-1.5 text-[12px]" style={{ color: '#4a6580' }}>
+                    <span className="material-symbols-outlined text-[14px]" style={{ color: alerts.length > 0 ? '#f87171' : '#60a5fa' }}>notifications</span>
+                    <span className="text-white/70 font-semibold">{alerts.length}</span> alert{alerts.length !== 1 ? 's' : ''} today
+                  </span>
+                  <span style={{ color: '#1e3048' }}>·</span>
+                  <span className={`flex items-center gap-1.5 text-[12px] font-medium ${scoreLabelCls}`}>
+                    <span className="size-1.5 rounded-full animate-pulse" style={{ background: scoreColor }} />
+                    {scoreLabel}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[#263446] text-[10px] font-mono bg-white/[0.02] px-3 py-2 rounded-lg border border-white/[0.04] flex items-center gap-2">
-                  <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  {new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'})}
-                </span>
-                <button className="flex items-center gap-1.5 rounded-lg h-8 px-3 bg-white/[0.03] text-[#556980] text-[10px] font-bold border border-white/[0.05] hover:bg-white/[0.06] hover:text-white transition-all active:scale-95 uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-[14px]">download</span>
-                  Export
+
+              {/* Header actions */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button className="flex items-center gap-2 h-9 px-4 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#6b8aaa' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#6b8aaa' }}>
+                  <span className="material-symbols-outlined text-[15px]">download</span>Export
                 </button>
-                <button className="flex items-center gap-1.5 rounded-lg h-8 px-3 bg-gradient-to-r from-primary to-indigo-500 text-white text-[10px] font-bold hover:shadow-lg hover:shadow-primary/25 transition-all active:scale-95 uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-[14px]">play_circle</span>
-                  Live
-                </button>
-              </div>
-            </div>
-
-            {/* ── SECURITY SCORE + STAT CARDS ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-              {/* Security Posture Score */}
-              <div className="lg:col-span-3 glass-card rounded-2xl bg-gradient-to-br from-[#0c1828]/90 to-[#060d14]/90 border border-white/[0.06] p-6 flex flex-col items-center justify-center gap-4 relative overflow-hidden backdrop-blur-xl">
-                {/* Radial glow behind score */}
-                <div className={`absolute inset-0 pointer-events-none transition-all duration-700 ${
-                  ransomwareAlerts.length > 0 ? 'bg-[radial-gradient(circle_at_50%_40%,rgba(245,158,11,0.08),transparent_70%)]'
-                  : agentRunning ? 'bg-[radial-gradient(circle_at_50%_40%,rgba(16,185,129,0.08),transparent_70%)]'
-                  : 'bg-[radial-gradient(circle_at_50%_40%,rgba(239,68,68,0.08),transparent_70%)]'
-                }`} />
-                <div className="relative">
-                  <svg width="130" height="130" viewBox="0 0 130 130" className="transform -rotate-90">
-                    <defs>
-                      <linearGradient id="scoreGrad" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0%" stopColor={ransomwareAlerts.length > 0 ? '#f59e0b' : agentRunning ? '#10b981' : '#ef4444'} />
-                        <stop offset="100%" stopColor={ransomwareAlerts.length > 0 ? '#f97316' : agentRunning ? '#06b6d4' : '#dc2626'} />
-                      </linearGradient>
-                      <filter id="scoreGlow">
-                        <feGaussianBlur stdDeviation="3" result="blur" />
-                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-                      </filter>
-                    </defs>
-                    <circle cx="65" cy="65" r="54" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="6" />
-                    <circle cx="65" cy="65" r="54" fill="none"
-                      stroke="url(#scoreGrad)"
-                      strokeWidth="6" strokeLinecap="round"
-                      strokeDasharray={`${(ransomwareAlerts.length > 0 ? 72 : agentRunning ? 94 : 30) * 3.39} 339`}
-                      className="transition-all duration-1000"
-                      filter="url(#scoreGlow)"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className={`text-4xl font-black tabular-nums ${ransomwareAlerts.length > 0 ? 'text-amber-400' : agentRunning ? 'text-emerald-400' : 'text-red-400'}`} style={{textShadow: `0 0 20px ${ransomwareAlerts.length > 0 ? 'rgba(245,158,11,0.3)' : agentRunning ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`}}>
-                      {ransomwareAlerts.length > 0 ? '72' : agentRunning ? '94' : '30'}
-                    </span>
-                    <span className="text-[8px] text-[#556980] font-bold uppercase tracking-[0.2em] mt-0.5">Score</span>
-                  </div>
-                </div>
-                <div className="text-center relative z-10">
-                  <p className="text-white text-sm font-bold">Security Posture</p>
-                  <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 flex items-center justify-center gap-1 ${ransomwareAlerts.length > 0 ? 'text-amber-400' : agentRunning ? 'text-emerald-400' : 'text-red-400'}`}>
-                    <span className={`size-1.5 rounded-full ${ransomwareAlerts.length > 0 ? 'bg-amber-400' : agentRunning ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                    {ransomwareAlerts.length > 0 ? 'Elevated Risk' : agentRunning ? 'Protected' : 'Unprotected'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Stat Cards Grid */}
-              <div className="lg:col-span-9 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                {/* Active Threats */}
-                <div className="glass-card group relative rounded-2xl p-5 bg-[#0a1118]/80 backdrop-blur-xl border border-white/[0.06] hover:border-red-500/30 overflow-hidden transition-all duration-500 hover:shadow-[0_0_40px_rgba(239,68,68,0.08)]">
-                  <div className="absolute -right-8 -bottom-8 size-32 rounded-full bg-red-500/[0.04] blur-2xl group-hover:bg-red-500/[0.1] transition-all duration-500" />
-                  <div className="flex items-center justify-between mb-3 relative z-10">
-                    <div className="size-10 rounded-xl bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center border border-red-500/10">
-                      <span className="material-symbols-outlined text-red-400 text-[20px]">gpp_bad</span>
-                    </div>
-                    {ransomwareAlerts.length > 0 && (
-                      <span className="flex items-center gap-1.5 text-red-400 text-[9px] font-bold bg-red-500/10 px-2 py-0.5 rounded-full">
-                        <span className="size-1.5 rounded-full bg-red-400 animate-pulse" />LIVE
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-end justify-between relative z-10">
-                    <div>
-                      {loading ? <p className="text-[#334b63] text-3xl font-bold">—</p> : (
-                        <p className="text-white text-4xl font-black tracking-tighter">{ransomwareAlerts.length}</p>
-                      )}
-                      <p className="text-[#334b63] text-[9px] font-bold uppercase tracking-[0.15em] mt-1">Active Threats</p>
-                    </div>
-                    <svg width="60" height="30" viewBox="0 0 60 30" className="opacity-30 group-hover:opacity-60 transition-opacity">
-                      <path d="M0,24 L8,20 L16,22 L24,16 L32,18 L40,8 L48,12 L56,4" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                  {error && <p className="text-[8px] text-red-400/70 truncate mt-2 relative z-10">{error}</p>}
-                </div>
-
-                {/* Honeytoken Hits */}
-                <div className="glass-card group relative rounded-2xl p-5 bg-[#0a1118]/80 backdrop-blur-xl border border-white/[0.06] hover:border-amber-500/30 overflow-hidden transition-all duration-500 hover:shadow-[0_0_40px_rgba(245,158,11,0.08)]">
-                  <div className="absolute -right-8 -bottom-8 size-32 rounded-full bg-amber-500/[0.04] blur-2xl group-hover:bg-amber-500/[0.1] transition-all duration-500" />
-                  <div className="flex items-center justify-between mb-3 relative z-10">
-                    <div className="size-10 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center border border-amber-500/10">
-                      <span className="material-symbols-outlined text-amber-400 text-[20px]">pest_control</span>
-                    </div>
-                    {honeytokenAlerts.length > 0 && (
-                      <span className="flex items-center gap-1 text-amber-400 text-[10px] font-bold">
-                       <span className="material-symbols-outlined text-[12px]">trending_up</span>+{honeytokenAlerts.length}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-end justify-between relative z-10">
-                    <div>
-                      {loading ? <p className="text-[#334b63] text-3xl font-bold">—</p> : (
-                        <p className="text-white text-4xl font-black tracking-tighter">{honeytokenAlerts.length}</p>
-                      )}
-                      <p className="text-[#334b63] text-[9px] font-bold uppercase tracking-[0.15em] mt-1">Honeytoken Hits</p>
-                    </div>
-                    <svg width="60" height="30" viewBox="0 0 60 30" className="opacity-30 group-hover:opacity-60 transition-opacity">
-                      <path d="M0,20 L8,18 L16,22 L24,14 L32,16 L40,10 L48,14 L56,6" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Total Alerts */}
-                <div className="glass-card group relative rounded-2xl p-5 bg-[#0a1118]/80 backdrop-blur-xl border border-white/[0.06] hover:border-blue-500/30 overflow-hidden transition-all duration-500 hover:shadow-[0_0_40px_rgba(59,130,246,0.08)]">
-                  <div className="absolute -right-8 -bottom-8 size-32 rounded-full bg-blue-500/[0.04] blur-2xl group-hover:bg-blue-500/[0.1] transition-all duration-500" />
-                  <div className="flex items-center justify-between mb-3 relative z-10">
-                    <div className="size-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center border border-blue-500/10">
-                      <span className="material-symbols-outlined text-blue-400 text-[20px]">monitoring</span>
-                    </div>
-                  </div>
-                  <div className="flex items-end justify-between relative z-10">
-                    <div>
-                      {loading ? <p className="text-[#334b63] text-3xl font-bold">—</p> : (
-                        <p className="text-white text-4xl font-black tracking-tighter">{alerts.length}</p>
-                      )}
-                      <p className="text-[#334b63] text-[9px] font-bold uppercase tracking-[0.15em] mt-1">Total Alerts</p>
-                    </div>
-                    <svg width="60" height="30" viewBox="0 0 60 30" className="opacity-30 group-hover:opacity-60 transition-opacity">
-                      <path d="M0,14 L8,18 L16,10 L24,20 L32,12 L40,16 L48,8 L56,14" fill="none" stroke="#3b82f6" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </div>
-                </div>
-
-                {/* Agent Status */}
-                <div className="glass-card group relative rounded-2xl p-5 bg-[#0a1118]/80 backdrop-blur-xl border border-white/[0.06] hover:border-emerald-500/30 overflow-hidden transition-all duration-500 hover:shadow-[0_0_40px_rgba(16,185,129,0.08)]">
-                  <div className="absolute -right-8 -bottom-8 size-32 rounded-full bg-emerald-500/[0.04] blur-2xl group-hover:bg-emerald-500/[0.1] transition-all duration-500" />
-                  <div className="flex items-center justify-between mb-3 relative z-10">
-                    <div className="size-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center border border-emerald-500/10">
-                      <span className="material-symbols-outlined text-emerald-400 text-[20px]">verified_user</span>
-                    </div>
-                    <span className={`text-[8px] px-2 py-0.5 rounded-full font-bold border ${error ? 'bg-red-500/15 text-red-400 border-red-500/15'
-                      : agentRunning ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/15' : 'bg-red-500/15 text-red-400 border-red-500/15'}`}>
-                      {error ? 'ERR' : agentRunning ? 'ON' : 'OFF'}
-                    </span>
-                  </div>
-                  <div className="relative z-10">
-                    <p className="text-white text-lg font-bold leading-tight">
-                      {error ? 'Unreachable' : agentRunning ? 'Monitoring' : 'Stopped'}
-                    </p>
-                    <p className="text-[#334b63] text-[9px] font-bold uppercase tracking-[0.15em] mt-1">Agent Status</p>
-                    <button onClick={handleAgentToggle} disabled={agentToggling}
-                      className={`mt-3 text-[9px] font-bold px-3.5 py-1.5 rounded-lg transition-all disabled:opacity-50 active:scale-95 uppercase tracking-wider ${agentRunning
-                        ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/10'
-                        : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/10'}`}
-                    >
-                      {agentToggling ? 'Wait…' : agentRunning ? 'Stop' : 'Start'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ── QUICK ACTIONS ── */}
-            <div className="flex flex-wrap items-center gap-2">
-              {[
-                { to: '/scan', icon: 'document_scanner', label: 'Scan Files' },
-                { to: '/Incidents', icon: 'warning', label: 'Incidents' },
-                { to: '/entropy', icon: 'ssid_chart', label: 'Entropy' },
-                { to: '/network', icon: 'hub', label: 'Network' },
-                { to: '/honeytokens', icon: 'bug_report', label: 'Honeytokens' },
-                { to: '/reports', icon: 'description', label: 'Reports' },
-              ].map(a => (
-                <Link key={a.to} to={a.to}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.02] backdrop-blur border border-white/[0.05] text-[#556980] hover:text-white hover:bg-white/[0.06] hover:border-white/[0.12] transition-all text-[11px] font-medium group"
-                >
-                  <span className="material-symbols-outlined text-[14px] group-hover:text-primary transition-colors">{a.icon}</span>
-                  {a.label}
+                <Link to="/scan" className="flex items-center gap-2 h-9 px-4 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all active:scale-95"
+                  style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)', color: '#fff', boxShadow: '0 4px 20px rgba(59,130,246,0.3)' }}
+                  onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 28px rgba(59,130,246,0.5)'}
+                  onMouseLeave={e => e.currentTarget.style.boxShadow = '0 4px 20px rgba(59,130,246,0.3)'}>
+                  <span className="material-symbols-outlined text-[15px]">document_scanner</span>Run Scan
                 </Link>
-              ))}
+              </div>
             </div>
 
-            {/* ── CHART + LIVE FEED ── */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              {/* Chart */}
-              <div className="xl:col-span-2 flex flex-col rounded-2xl bg-[#0a1118] border border-white/[0.06] overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04]">
-                  <div className="flex items-center gap-2.5">
-                    <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-primary text-[16px]">trending_up</span>
-                    </div>
-                    <h3 className="text-white text-sm font-bold">Threat Detection Velocity</h3>
+            {/* ════ KPI CARDS ════ */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
+              {/* Active Threats */}
+              <div className="group relative rounded-2xl p-5 overflow-hidden transition-all duration-500 cursor-default"
+                style={{ background: 'linear-gradient(135deg,rgba(239,68,68,0.08),rgba(10,17,32,0.9))', border: '1px solid rgba(239,68,68,0.12)' }}
+                onMouseEnter={e => { e.currentTarget.style.border = '1px solid rgba(239,68,68,0.3)'; e.currentTarget.style.boxShadow = '0 0 40px rgba(239,68,68,0.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(239,68,68,0.12)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <div className="absolute -right-6 -bottom-6 size-28 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'radial-gradient(circle,rgba(239,68,68,0.12),transparent)' }} />
+                <div className="flex items-start justify-between mb-4">
+                  <div className="size-11 rounded-xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                    <span className="material-symbols-outlined text-[22px]" style={{ color: '#f87171' }}>gpp_bad</span>
                   </div>
-                  <div className="flex items-center gap-1 bg-white/[0.03] rounded-lg p-0.5 border border-white/[0.06]">
-                    {['1H','6H','24H','7D'].map((t,i) => (
-                      <button key={t} className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${i === 2 ? 'bg-primary/20 text-primary' : 'text-[#556980] hover:text-white'}`}>
+                  {ransomwareAlerts.length > 0 && (
+                    <span className="flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171' }}>
+                      <span className="size-1.5 rounded-full animate-pulse" style={{ background: '#ef4444' }} />LIVE
+                    </span>
+                  )}
+                </div>
+                <p className="text-[42px] font-black tracking-tighter leading-none mb-1.5 tabular-nums" style={{ color: ransomwareAlerts.length > 0 ? '#f87171' : '#fff' }}>
+                  {loading ? '—' : ransomwareAlerts.length}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: '#3a5472' }}>Active Threats</p>
+                <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg,rgba(239,68,68,0.3),transparent)' }} />
+              </div>
+
+              {/* Honeytoken Hits */}
+              <div className="group relative rounded-2xl p-5 overflow-hidden transition-all duration-500 cursor-default"
+                style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.08),rgba(10,17,32,0.9))', border: '1px solid rgba(245,158,11,0.12)' }}
+                onMouseEnter={e => { e.currentTarget.style.border = '1px solid rgba(245,158,11,0.3)'; e.currentTarget.style.boxShadow = '0 0 40px rgba(245,158,11,0.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(245,158,11,0.12)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <div className="absolute -right-6 -bottom-6 size-28 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'radial-gradient(circle,rgba(245,158,11,0.12),transparent)' }} />
+                <div className="flex items-start justify-between mb-4">
+                  <div className="size-11 rounded-xl flex items-center justify-center" style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                    <span className="material-symbols-outlined text-[22px]" style={{ color: '#fbbf24' }}>pest_control</span>
+                  </div>
+                  {honeytokenAlerts.length > 0 && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold" style={{ color: '#fbbf24' }}>
+                      <span className="material-symbols-outlined text-[13px]">trending_up</span>+{honeytokenAlerts.length}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[42px] font-black tracking-tighter leading-none mb-1.5 tabular-nums" style={{ color: honeytokenAlerts.length > 0 ? '#fbbf24' : '#fff' }}>
+                  {loading ? '—' : honeytokenAlerts.length}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: '#3a5472' }}>Honeytoken Hits</p>
+                <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg,rgba(245,158,11,0.3),transparent)' }} />
+              </div>
+
+              {/* Total Alerts */}
+              <div className="group relative rounded-2xl p-5 overflow-hidden transition-all duration-500 cursor-default"
+                style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.08),rgba(10,17,32,0.9))', border: '1px solid rgba(59,130,246,0.12)' }}
+                onMouseEnter={e => { e.currentTarget.style.border = '1px solid rgba(59,130,246,0.3)'; e.currentTarget.style.boxShadow = '0 0 40px rgba(59,130,246,0.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.border = '1px solid rgba(59,130,246,0.12)'; e.currentTarget.style.boxShadow = 'none' }}>
+                <div className="absolute -right-6 -bottom-6 size-28 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: 'radial-gradient(circle,rgba(59,130,246,0.12),transparent)' }} />
+                <div className="flex items-start justify-between mb-4">
+                  <div className="size-11 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                    <span className="material-symbols-outlined text-[22px]" style={{ color: '#60a5fa' }}>monitoring</span>
+                  </div>
+                </div>
+                <p className="text-[42px] font-black tracking-tighter leading-none mb-1.5 tabular-nums" style={{ color: alerts.length > 0 ? '#93c5fd' : '#fff' }}>
+                  {loading ? '—' : alerts.length}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: '#3a5472' }}>Total Alerts</p>
+                <div className="mt-3 h-px w-full" style={{ background: 'linear-gradient(90deg,rgba(59,130,246,0.3),transparent)' }} />
+              </div>
+
+              {/* Security Score */}
+              <div className="group relative rounded-2xl p-5 overflow-hidden transition-all duration-500 cursor-default"
+                style={{ background: `linear-gradient(135deg,${scoreColor}14,rgba(10,17,32,0.9))`, border: `1px solid ${scoreColor}20` }}
+                onMouseEnter={e => { e.currentTarget.style.border = `1px solid ${scoreColor}45`; e.currentTarget.style.boxShadow = `0 0 40px ${scoreColor}12` }}
+                onMouseLeave={e => { e.currentTarget.style.border = `1px solid ${scoreColor}20`; e.currentTarget.style.boxShadow = 'none' }}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="size-11 rounded-xl flex items-center justify-center" style={{ background: `${scoreColor}18`, border: `1px solid ${scoreColor}20` }}>
+                    <span className="material-symbols-outlined text-[22px]" style={{ color: scoreColor }}>verified_user</span>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: `${scoreColor}18`, color: scoreColor }}>
+                    {scoreLabel}
+                  </span>
+                </div>
+                <div className="flex items-end gap-2 mb-1.5">
+                  <p className="text-[42px] font-black tracking-tighter leading-none tabular-nums" style={{ color: scoreColor }}>{securityScore}</p>
+                  <p className="text-[13px] font-bold mb-2" style={{ color: `${scoreColor}80` }}>/100</p>
+                </div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: '#3a5472' }}>Security Score</p>
+                <div className="mt-3 h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                  <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${securityScore}%`, background: `linear-gradient(90deg,${scoreColor},${scoreColorAlt})`, boxShadow: `0 0 10px ${scoreColor}60` }} />
+                </div>
+              </div>
+            </div>
+
+            {/* ════ QUICK ACTIONS ════ */}
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] mb-3" style={{ color: '#2a3f56' }}>Quick Actions</p>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_ACTIONS.map(a => {
+                  const c = COLOR_MAP[a.color]
+                  return (
+                    <Link key={a.to} to={a.to}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[12px] font-semibold transition-all active:scale-95"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#5a7a9a' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; e.currentTarget.style.color = '#fff' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#5a7a9a' }}>
+                      <span className={`material-symbols-outlined text-[15px] ${c.text}`}>{a.icon}</span>
+                      {a.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* ════ CHART + LIVE FEED ════ */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+
+              {/* ── Threat Detection Chart ── */}
+              <div className="xl:col-span-2 flex flex-col rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                      <span className="material-symbols-outlined text-[17px]" style={{ color: '#60a5fa' }}>trending_up</span>
+                    </div>
+                    <div>
+                      <h3 className="text-white font-bold text-[14px] leading-tight">Threat Detection Velocity</h3>
+                      <p className="text-[10px]" style={{ color: '#3a5472' }}>24-hour event timeline</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 p-0.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {['1H','6H','24H','7D'].map((t, i) => (
+                      <button key={t} className="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all"
+                        style={ i === 2 ? { background: 'rgba(59,130,246,0.2)', color: '#60a5fa' } : { color: '#3a5472' }}>
                         {t}
                       </button>
                     ))}
                   </div>
                 </div>
-                <div className="px-6 py-2 flex items-center gap-6 text-[10px] border-b border-white/[0.03]">
-                  <span className="flex items-center gap-1.5 text-[#556980]"><span className="size-2 rounded-full bg-primary" /> Events</span>
-                  <span className="flex items-center gap-1.5 text-[#556980]"><span className="size-2 rounded-full bg-red-500" /> Critical</span>
-                  <span className="ml-auto text-[#334b63]">Peak: <span className="text-white font-bold">94</span></span>
-                  <span className="text-[#334b63]">Avg: <span className="text-[#92adc9] font-bold">47</span></span>
+
+                {/* Legend */}
+                <div className="flex items-center gap-5 px-6 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                  <span className="flex items-center gap-1.5 text-[10px]" style={{ color: '#4a6580' }}>
+                    <span className="size-2 rounded-full" style={{ background: '#3b82f6' }} />Events
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[10px]" style={{ color: '#4a6580' }}>
+                    <span className="size-2 rounded-full" style={{ background: '#ef4444' }} />Critical
+                  </span>
+                  <span className="ml-auto text-[10px]" style={{ color: '#2a3f56' }}>
+                    Peak: <span className="font-bold" style={{ color: '#fff' }}>94</span>
+                  </span>
+                  <span className="text-[10px]" style={{ color: '#2a3f56' }}>
+                    Avg: <span className="font-bold" style={{ color: '#60a5fa' }}>47</span>
+                  </span>
                 </div>
-                <div className="relative w-full h-[220px] px-6 pt-4 pb-2">
-                  <div className="absolute inset-x-6 inset-y-4 flex flex-col justify-between pointer-events-none z-0">
+
+                {/* Chart area */}
+                <div className="relative px-6 pt-5 pb-2" style={{ height: 220 }}>
+                  {/* Y-axis grid */}
+                  <div className="absolute inset-x-6 inset-y-5 flex flex-col justify-between pointer-events-none">
                     {[100,75,50,25,0].map(v => (
-                      <div key={v} className="border-b border-white/[0.03] w-full h-0 flex items-end">
-                        <span className="text-[9px] text-[#263446] font-mono -ml-1 -mb-1">{v}</span>
+                      <div key={v} className="flex items-center gap-2 h-0">
+                        <span className="text-[9px] font-mono w-6 text-right shrink-0" style={{ color: '#1e3048' }}>{v}</span>
+                        <div className="flex-1 border-b" style={{ borderColor: 'rgba(255,255,255,0.03)' }} />
                       </div>
                     ))}
                   </div>
-                  <svg className="absolute inset-x-6 inset-y-4 w-[calc(100%-3rem)] h-[calc(100%-1.5rem)] z-10" preserveAspectRatio="none" viewBox="0 0 500 100">
+                  {/* SVG chart */}
+                  <svg className="absolute inset-x-12 inset-y-5 w-[calc(100%-4rem)] h-[calc(100%-1.25rem)]" preserveAspectRatio="none" viewBox="0 0 500 100">
                     <defs>
-                      <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+                      <linearGradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.22" />
                         <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
                       </linearGradient>
-                      <linearGradient id="lineGradient" x1="0" x2="1" y1="0" y2="0">
+                      <linearGradient id="lineGrad" x1="0" x2="1" y1="0" y2="0">
                         <stop offset="0%" stopColor="#3b82f6" />
                         <stop offset="50%" stopColor="#6366f1" />
                         <stop offset="100%" stopColor="#8b5cf6" />
                       </linearGradient>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="2.5" result="blur"/>
+                        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                      </filter>
                     </defs>
-                    <path d="M0,80 C20,80 30,40 50,40 C70,40 80,70 100,70 C120,70 130,20 150,20 C170,20 180,60 200,60 C220,60 230,85 250,85 C270,85 280,30 300,30 C320,30 330,50 350,50 C370,50 380,10 400,10 C420,10 430,70 450,70 C470,70 480,45 500,45 V100 H0 Z" fill="url(#chartGradient)" />
-                    <path d="M0,80 C20,80 30,40 50,40 C70,40 80,70 100,70 C120,70 130,20 150,20 C170,20 180,60 200,60 C220,60 230,85 250,85 C270,85 280,30 300,30 C320,30 330,50 350,50 C370,50 380,10 400,10 C420,10 430,70 450,70 C470,70 480,45 500,45" fill="none" stroke="url(#lineGradient)" strokeWidth="2" strokeLinecap="round" />
-                    <circle cx="150" cy="20" fill="#ef4444" r="3.5" stroke="#0a1118" strokeWidth="2">
-                      <animate attributeName="r" values="3.5;5.5;3.5" dur="2s" repeatCount="indefinite" />
+                    <path d="M0,78 C15,78 25,42 45,38 C65,34 75,68 100,66 C125,64 135,18 155,15 C175,12 185,58 210,56 C235,54 245,82 265,80 C285,78 295,28 320,26 C345,24 355,48 375,46 C395,44 405,8 425,6 C445,4 455,68 475,66 C490,64 495,42 500,40 V100 H0 Z"
+                      fill="url(#areaGrad)"/>
+                    <path d="M0,78 C15,78 25,42 45,38 C65,34 75,68 100,66 C125,64 135,18 155,15 C175,12 185,58 210,56 C235,54 245,82 265,80 C285,78 295,28 320,26 C345,24 355,48 375,46 C395,44 405,8 425,6 C445,4 455,68 475,66 C490,64 495,42 500,40"
+                      fill="none" stroke="url(#lineGrad)" strokeWidth="2" strokeLinecap="round" filter="url(#glow)"/>
+                    <circle cx="155" cy="15" r="4" fill="#ef4444" stroke="#08101d" strokeWidth="2">
+                      <animate attributeName="r" values="4;6;4" dur="2s" repeatCount="indefinite"/>
                     </circle>
-                    <circle cx="400" cy="10" fill="#ef4444" r="3.5" stroke="#0a1118" strokeWidth="2">
-                      <animate attributeName="r" values="3.5;5.5;3.5" dur="2s" repeatCount="indefinite" />
+                    <circle cx="425" cy="6" r="4" fill="#ef4444" stroke="#08101d" strokeWidth="2">
+                      <animate attributeName="r" values="4;6;4" dur="2.4s" repeatCount="indefinite"/>
                     </circle>
                   </svg>
                 </div>
-                <div className="flex justify-between text-[#334b63] text-[9px] font-mono px-7 pb-4">
+
+                {/* X-axis labels */}
+                <div className="flex justify-between px-12 pb-4 pt-1">
                   {['00:00','04:00','08:00','12:00','16:00','20:00','NOW'].map(t => (
-                    <span key={t} className={t === 'NOW' ? 'text-primary font-bold' : ''}>{t}</span>
+                    <span key={t} className="text-[9px] font-mono" style={{ color: t === 'NOW' ? '#60a5fa' : '#1e3048', fontWeight: t === 'NOW' ? 700 : 400 }}>{t}</span>
                   ))}
                 </div>
               </div>
 
-              {/* Live Threat Feed */}
-              <div className="flex flex-col rounded-2xl bg-[#0a1118] border border-white/[0.06] overflow-hidden h-full">
-                <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="size-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-red-400 text-[16px]">cell_tower</span>
+              {/* ── Live Threat Feed ── */}
+              <div className="flex flex-col rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                      <span className="material-symbols-outlined text-[17px]" style={{ color: '#f87171' }}>cell_tower</span>
                     </div>
-                    <h3 className="text-white text-sm font-bold">Live Feed</h3>
+                    <div>
+                      <h3 className="text-white font-bold text-[14px] leading-tight">Live Feed</h3>
+                      <p className="text-[10px]" style={{ color: '#3a5472' }}>Real-time events</p>
+                    </div>
                   </div>
-                  <span className="flex items-center gap-1.5 text-red-400 text-[9px] font-bold tracking-wider">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
+                  <span className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider" style={{ color: '#f87171' }}>
+                    <span className="relative flex size-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#ef4444' }}/>
+                      <span className="relative inline-flex rounded-full size-2" style={{ background: '#ef4444' }}/>
                     </span>
-                    LIVE
+                    Live
                   </span>
                 </div>
-                <div className="flex-1 overflow-y-auto">
+
+                <div className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: 280 }}>
                   {loading && (
-                    <div className="flex items-center justify-center p-10 text-[#334b63] text-xs">
-                      <span className="material-symbols-outlined animate-spin mr-2 text-primary text-[18px]">progress_activity</span>
-                      Connecting…
+                    <div className="flex flex-col items-center justify-center py-14 gap-3">
+                      <span className="material-symbols-outlined animate-spin text-[24px]" style={{ color: '#60a5fa' }}>progress_activity</span>
+                      <p className="text-[11px]" style={{ color: '#3a5472' }}>Connecting to agent…</p>
                     </div>
                   )}
                   {!loading && recentAlerts.length === 0 && (
-                    <div className="flex flex-col items-center justify-center p-10 text-[#334b63] text-xs gap-2">
-                      <span className="material-symbols-outlined text-2xl text-emerald-500/50">verified_user</span>
-                      <p className="font-medium">All clear</p>
+                    <div className="flex flex-col items-center justify-center py-14 gap-3">
+                      <div className="size-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(16,185,129,0.1)' }}>
+                        <span className="material-symbols-outlined text-[24px]" style={{ color: 'rgba(16,185,129,0.6)' }}>verified_user</span>
+                      </div>
+                      <p className="text-[12px] font-semibold" style={{ color: '#3a5472' }}>All Systems Clear</p>
+                      <p className="text-[10px]" style={{ color: '#1e3048' }}>No threats detected</p>
                     </div>
                   )}
                   {recentAlerts.map((alert, i) => {
-                    const isRansomware = alert.alert_type === 'ransomware_suspected'
+                    const isR = alert.alert_type === 'ransomware_suspected'
                     return (
-                      <div key={i} className="group flex gap-3 px-4 py-3.5 border-b border-white/[0.03] hover:bg-white/[0.02] transition-all cursor-pointer">
-                        <div className={`flex items-center justify-center size-8 rounded-lg shrink-0 transition-colors ${isRansomware
-                          ? 'bg-red-500/10 text-red-400'
-                          : 'bg-amber-500/10 text-amber-400'}`}>
-                          <span className="material-symbols-outlined text-[16px]">
-                            {isRansomware ? 'bug_report' : 'key'}
+                      <div key={i} className="flex gap-3 px-4 py-3.5 transition-all cursor-pointer"
+                        style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', borderLeft: `3px solid ${isR ? '#ef4444' : '#f59e0b'}` }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <div className="size-9 rounded-xl shrink-0 flex items-center justify-center" style={{ background: isR ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)' }}>
+                          <span className="material-symbols-outlined text-[16px]" style={{ color: isR ? '#f87171' : '#fbbf24' }}>
+                            {isR ? 'bug_report' : 'key'}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-center mb-0.5">
-                            <span className={`text-[9px] font-bold uppercase tracking-wider ${isRansomware ? 'text-red-400' : 'text-amber-400'}`}>
-                              {isRansomware ? 'Critical' : 'Warning'}
+                            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: isR ? '#f87171' : '#fbbf24' }}>
+                              {isR ? 'Critical' : 'Warning'}
                             </span>
-                            <span className="text-[#263446] text-[9px] font-mono tabular-nums">
-                              {formatTs(alert.timestamp)}
-                            </span>
+                            <span className="text-[9px] font-mono tabular-nums" style={{ color: '#2a3f56' }}>{formatTs(alert.timestamp)}</span>
                           </div>
-                          <p className="text-white text-[12px] font-medium truncate leading-tight">
-                            {isRansomware ? 'Ransomware Suspected' : 'Honeytoken Accessed'}
+                          <p className="text-white text-[12px] font-semibold truncate leading-tight">
+                            {isR ? 'Ransomware Suspected' : 'Honeytoken Accessed'}
                           </p>
-                          <p className="text-[#334b63] text-[10px] truncate mt-0.5">
+                          <p className="text-[10px] truncate mt-0.5" style={{ color: '#3a5472' }}>
                             {alert.host || '—'}{alert.process_name && ` · ${alert.process_name}`}
                           </p>
                         </div>
@@ -656,120 +684,149 @@ export default function DashboardOverviewPage() {
                     )
                   })}
                 </div>
+
                 <Link to="/Incidents"
-                  className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-white/[0.02] border-t border-white/[0.04] text-[10px] text-primary font-bold hover:text-white transition-colors uppercase tracking-widest"
-                >
-                  View All <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                  className="flex items-center justify-center gap-1.5 py-3 text-[10px] font-bold uppercase tracking-widest transition-all"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.04)', color: '#60a5fa' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.06)'; e.currentTarget.style.color = '#93c5fd' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#60a5fa' }}>
+                  View All Incidents
+                  <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
                 </Link>
               </div>
-              {/* Endpoint Map */}
-              <div className="xl:col-span-3 flex flex-col rounded-2xl bg-[#0a1118] border border-white/[0.06] overflow-hidden h-full">
-                <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="size-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-emerald-400 text-[16px]">public</span>
-                    </div>
-                    <h3 className="text-white text-sm font-bold">Endpoint Map</h3>
+            </div>
+
+            {/* ════ ALERT ACTIVITY TIMELINE ════ */}
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                    <span className="material-symbols-outlined text-[17px]" style={{ color: '#818cf8' }}>bar_chart</span>
                   </div>
-                  <span className="flex items-center gap-1.5 text-emerald-400 text-[9px] font-bold tracking-wider">
-                    <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" /> LIVE
-                  </span>
+                  <div>
+                    <h3 className="text-white font-bold text-[14px] leading-tight">Alert Activity</h3>
+                    <p className="text-[10px]" style={{ color: '#3a5472' }}>Last 60 minutes · 5-min buckets</p>
+                  </div>
                 </div>
-                <div className="relative flex-1 bg-[#060d14] min-h-[400px] xl:min-h-[450px] group/map">
-                  <div
-                    className="absolute inset-0 bg-cover bg-center opacity-30 grayscale group-hover/map:grayscale-0 group-hover/map:opacity-50 transition-all duration-700"
-                    style={{
-                      backgroundImage:
-                        'url("https://lh3.googleusercontent.com/aida-public/AB6AXuCbzsu07R3qPI1x9wlzPUj8mZ0EX1EkYbCMu7t8ewGT0q3dS95eRT8alL2Ynj1vonzn-N6ZsjqsqX_3gFb_5fLQFZdy3bbIYoiUhdnrjjXbM9SXFosW8FQmI1D90Nw4brqm4uDfaGED_bymByj_Io9nM3heErzutlxY8zSeli2GcDLvGnCSq5LrWkDid1HMiWN_VO0tj8-DXQaXgUjF5PVj57YtmL1JK1RBXoKJ2goXEq726J8mQHT3GU_ipc5J40JXQ24M5YFW1zE")',
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-[linear-gradient(rgba(19,127,236,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(19,127,236,0.03)_1px,transparent_1px)] bg-[size:20px_20px]" />
-                  {/* Gradient overlay for depth */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#060d14] via-transparent to-transparent pointer-events-none" />
-                  <div className="absolute top-[32%] left-[22%] group">
-                    <div className="relative flex items-center justify-center">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-20" />
-                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 ring-4 ring-emerald-500/20 cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-mono" style={{ color: '#3a5472' }}>Total: <span className="font-bold" style={{ color: '#818cf8' }}>{alerts.length}</span></span>
+                  <span className="text-[10px] font-mono" style={{ color: '#3a5472' }}>Peak: <span className="font-bold" style={{ color: '#fff' }}>{maxBucket}</span></span>
+                </div>
+              </div>
+              <div className="px-6 pt-5 pb-4">
+                <div className="flex items-end gap-1.5 h-24">
+                  {timelineBuckets.map((b, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group/bar" title={`${b.count} alert(s) — ${b.label} ago`}>
+                      <div className="w-full rounded-t-sm transition-all duration-500 relative overflow-hidden"
+                        style={{
+                          height: `${Math.max(4, (b.count / maxBucket) * 72)}px`,
+                          background: b.count > 0 ? 'linear-gradient(to top,rgba(59,130,246,0.7),rgba(99,102,241,0.5))' : 'rgba(255,255,255,0.04)',
+                          boxShadow: b.count > 0 ? '0 0 12px rgba(59,130,246,0.25)' : 'none',
+                        }}>
+                        {b.count > 0 && <div className="absolute inset-0 opacity-0 group-hover/bar:opacity-100 transition-opacity" style={{ background: 'linear-gradient(to top,rgba(99,102,241,0.9),rgba(139,92,246,0.7))' }} />}
+                      </div>
+                      {i % 3 === 0 && <span className="text-[8px] font-mono" style={{ color: '#1e3048' }}>{b.label}</span>}
                     </div>
-                  </div>
-                  <div className="absolute top-[35%] left-[49%] group">
-                    <div className="relative flex items-center justify-center">
-                      <span className="animate-ping absolute inline-flex h-8 w-8 rounded-full bg-red-500 opacity-30" />
-                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500 ring-4 ring-red-500/20 cursor-pointer shadow-[0_0_10px_rgba(239,68,68,0.4)]" />
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* ── SECURITY ALERTS TABLE ── */}
-            <div className="flex flex-col rounded-2xl bg-[#0a1118] border border-white/[0.06] overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04]">
-                <div className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-primary text-[16px]">security</span>
+            {/* ════ RECENT ALERTS TABLE ════ */}
+            <div className="rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                    <span className="material-symbols-outlined text-[17px]" style={{ color: '#60a5fa' }}>security</span>
                   </div>
-                  <h3 className="text-white text-sm font-bold">Recent Security Alerts</h3>
-                  <span className="text-[9px] text-[#334b63] bg-white/[0.03] px-2 py-0.5 rounded font-mono border border-white/[0.04]">{alerts.length}</span>
+                  <div className="flex items-center gap-2.5">
+                    <h3 className="text-white font-bold text-[14px]">Recent Security Alerts</h3>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: '#3a5472', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      {alerts.length}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-[#556980] bg-white/[0.03] rounded-md hover:bg-white/[0.06] border border-white/[0.06] transition-all active:scale-95">
+                <div className="flex items-center gap-2">
+                  <button className="h-8 px-3.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: '#5a7a9a' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = '#fff' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = '#5a7a9a' }}>
                     Export
                   </button>
-                  <Link to="/alerts" className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-white bg-primary/80 rounded-md hover:bg-primary transition-all active:scale-95">
+                  <Link to="/alerts" className="h-8 px-3.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all active:scale-95 flex items-center"
+                    style={{ background: 'linear-gradient(135deg,rgba(59,130,246,0.8),rgba(99,102,241,0.8))', color: '#fff' }}
+                    onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,130,246,0.35)'}
+                    onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}>
                     View All
                   </Link>
                 </div>
               </div>
+
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-[#556980]">
-                  <thead className="text-[9px] uppercase font-bold tracking-wider text-[#334b63] border-b border-white/[0.03]">
-                    <tr>
-                      <th className="px-6 py-3">Severity</th>
-                      <th className="px-6 py-3">Timestamp</th>
-                      <th className="px-6 py-3">Hostname</th>
-                      <th className="px-6 py-3">Threat Type</th>
-                      <th className="px-6 py-3">Status</th>
-                      <th className="px-6 py-3 text-right">Action</th>
+                <table className="w-full text-left">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      {['Severity','Timestamp','Hostname','Threat Type','Status','Action'].map((h, i) => (
+                        <th key={h} className={`px-6 py-3 text-[9px] font-bold uppercase tracking-[0.15em] ${i === 5 ? 'text-right' : ''}`} style={{ color: '#2a3f56' }}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.03]">
-                    {alerts.slice(0, 5).map((a, i) => {
-                      const isRansomware = a.alert_type === 'ransomware_suspected'
+                  <tbody>
+                    {alerts.slice(0, 6).map((a, i) => {
+                      const isR = a.alert_type === 'ransomware_suspected'
                       return (
-                        <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                        <tr key={i} className="transition-colors"
+                          style={{ borderBottom: '1px solid rgba(255,255,255,0.025)' }}
+                          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                           <td className="px-6 py-3.5">
-                            <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${isRansomware
-                              ? 'text-red-400 bg-red-500/10'
-                              : 'text-amber-400 bg-amber-500/10'}`}>
-                              <span className={`size-1.5 rounded-full ${isRansomware ? 'bg-red-400' : 'bg-amber-400'}`} />
-                              {isRansomware ? 'Critical' : 'Warning'}
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider"
+                              style={{ background: isR ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)', color: isR ? '#f87171' : '#fbbf24', border: `1px solid ${isR ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)'}` }}>
+                              <span className="size-1.5 rounded-full" style={{ background: isR ? '#ef4444' : '#f59e0b' }} />
+                              {isR ? 'Critical' : 'Warning'}
                             </span>
                           </td>
-                          <td className="px-6 py-3.5 text-[#556980] font-mono text-[11px] tabular-nums">{formatTs(a.timestamp)}</td>
-                          <td className="px-6 py-3.5 text-white font-medium text-[12px]">{a.host || '—'}</td>
-                          <td className="px-6 py-3.5 text-[12px]">{isRansomware ? 'Ransomware' : 'Honeytoken'}</td>
+                          <td className="px-6 py-3.5 text-[11px] font-mono tabular-nums" style={{ color: '#4a6580' }}>{formatTs(a.timestamp)}</td>
+                          <td className="px-6 py-3.5">
+                            <span className="text-white font-semibold text-[12px] font-mono">{a.host || '—'}</span>
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[13px]" style={{ color: isR ? '#f87171' : '#fbbf24' }}>
+                                {isR ? 'bug_report' : 'key'}
+                              </span>
+                              <span className="text-[12px]" style={{ color: '#6b8aaa' }}>{isR ? 'Ransomware' : 'Honeytoken'}</span>
+                            </div>
+                          </td>
                           <td className="px-6 py-3.5">
                             {a.process_killed ? (
-                              <span className="text-emerald-400 flex items-center gap-1 text-[11px] font-medium">
-                                <span className="material-symbols-outlined text-[13px]">check_circle</span> Blocked
+                              <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#34d399' }}>
+                                <span className="material-symbols-outlined text-[14px]">check_circle</span>Blocked
                               </span>
                             ) : (
-                              <span className="text-amber-400/70 flex items-center gap-1 text-[11px] font-medium">
-                                <span className="material-symbols-outlined text-[13px]">visibility</span> Detected
+                              <span className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: '#fbbf24' }}>
+                                <span className="material-symbols-outlined text-[14px]">visibility</span>Detected
                               </span>
                             )}
                           </td>
                           <td className="px-6 py-3.5 text-right">
-                            <Link to="/Incidents" className="text-primary hover:text-white font-bold text-[9px] uppercase tracking-wider transition-colors">Investigate</Link>
+                            <Link to="/Incidents" className="text-[10px] font-bold uppercase tracking-wider transition-all px-2.5 py-1 rounded-lg"
+                              style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)' }}
+                              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.18)'; e.currentTarget.style.color = '#93c5fd' }}
+                              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.color = '#60a5fa' }}>
+                              Investigate
+                            </Link>
                           </td>
                         </tr>
                       )
                     })}
                     {alerts.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="px-6 py-10 text-center text-[#263446] text-xs">
-                          No security alerts at this time
+                        <td colSpan={6} className="py-14 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <span className="material-symbols-outlined text-[32px]" style={{ color: '#1a2b3c' }}>security</span>
+                            <p className="text-[13px] font-medium" style={{ color: '#2a3f56' }}>No security alerts at this time</p>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -777,139 +834,105 @@ export default function DashboardOverviewPage() {
                 </table>
               </div>
             </div>
-          </div>
 
-          {/* ── Alert Activity Timeline ────────────────────── */}
-          <div className="px-6 lg:px-10 pb-4 pt-2 max-w-[1200px] mx-auto">
-            <div className="bg-[#0a1118] rounded-2xl border border-white/[0.06] overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04]">
-                <div className="flex items-center gap-2">
-                  <div className="size-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-indigo-400 text-[16px]">bar_chart</span>
-                  </div>
-                  <h3 className="text-white text-sm font-bold">Alert Activity</h3>
-                  <span className="text-[9px] text-[#334b63] font-mono">60 min</span>
-                </div>
-                <span className="text-[9px] bg-white/[0.03] text-[#556980] px-2.5 py-1 rounded font-bold tracking-wider border border-white/[0.04]">{alerts.length} TOTAL</span>
-              </div>
-              <div className="flex items-end gap-1 h-20 px-6 py-4">
-                {timelineBuckets.map((b, i) => (
-                  <div key={i} className="flex flex-col items-center flex-1 gap-1" title={`${b.count} alert(s) — ${b.label} ago`}>
-                    <div
-                      className={`w-full rounded transition-all duration-500 ${b.count > 0 ? 'bg-gradient-to-t from-primary/60 to-indigo-400/40 hover:from-primary hover:to-indigo-400' : 'bg-white/[0.03]'}`}
-                      style={{ height: `${Math.max(3, (b.count / maxBucket) * 56)}px` }}
-                    />
-                    {i % 3 === 0 && <span className="text-[8px] text-[#263446] font-mono">{b.label}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Per-Host Breakdown ─────────────────────────── */}
-          {hostMap.length > 0 && (
-            <div className="px-6 lg:px-10 pb-8 max-w-[1200px] mx-auto">
-              <div className="bg-[#0a1118] rounded-2xl border border-white/[0.06] overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/[0.04] flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="size-8 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-cyan-400 text-[16px]">dns</span>
+            {/* ════ ACTIVE HOSTS ════ */}
+            {hostMap.length > 0 && (
+              <div className="rounded-2xl overflow-hidden" style={{ background: '#08101d', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="size-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                      <span className="material-symbols-outlined text-[17px]" style={{ color: '#22d3ee' }}>dns</span>
                     </div>
-                    <h3 className="text-white text-sm font-bold">Active Hosts</h3>
-                    <span className="text-[9px] text-[#334b63] bg-white/[0.03] px-2 py-0.5 rounded font-mono border border-white/[0.04]">{hostMap.length}</span>
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-white font-bold text-[14px]">Active Hosts</h3>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', color: '#3a5472', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        {hostMap.length}
+                      </span>
+                    </div>
                   </div>
+                  <Link to="/network" className="text-[10px] font-bold uppercase tracking-wider transition-colors flex items-center gap-1"
+                    style={{ color: '#22d3ee' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#67e8f9'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#22d3ee'}>
+                    Network View <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                  </Link>
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="text-[9px] uppercase font-bold tracking-wider text-[#334b63] border-b border-white/[0.03]">
-                      <tr>
-                        <th className="px-6 py-3">Hostname</th>
-                        <th className="px-6 py-3">Total</th>
-                        <th className="px-6 py-3">Ransomware</th>
-                        <th className="px-6 py-3">Honeytoken</th>
-                        <th className="px-6 py-3 text-right">Action</th>
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                        {['Hostname','Alert Count','Ransomware','Honeytoken','Risk','Action'].map((h, i) => (
+                          <th key={h} className={`px-6 py-3 text-[9px] font-bold uppercase tracking-[0.15em] ${i === 5 ? 'text-right' : ''}`} style={{ color: '#2a3f56' }}>{h}</th>
+                        ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.03]">
-                      {hostMap.map(h => (
-                        <tr key={h.host} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-6 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className={`size-2 rounded-full ${h.ransomware > 0 ? 'bg-red-400 animate-pulse' : 'bg-amber-400'}`} />
-                              <span className="text-white font-mono font-medium text-[12px]">{h.host}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-3">
-                            <span className={`font-bold text-[12px] ${h.total > 3 ? 'text-red-400' : h.total > 1 ? 'text-amber-400' : 'text-[#334b63]'}`}>{h.total}</span>
-                          </td>
-                          <td className="px-6 py-3">
-                            {h.ransomware > 0
-                              ? <span className="text-red-400 font-bold text-[12px]">{h.ransomware}</span>
-                              : <span className="text-[#1e2a3a]">—</span>}
-                          </td>
-                          <td className="px-6 py-3">
-                            {h.honeytoken > 0
-                              ? <span className="text-amber-400 font-bold text-[12px]">{h.honeytoken}</span>
-                              : <span className="text-[#1e2a3a]">—</span>}
-                          </td>
-                          <td className="px-6 py-3 text-right">
-                            <Link to="/Incidents" className="text-primary hover:text-white text-[9px] font-bold uppercase tracking-wider transition-colors">
-                              Investigate →
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody>
+                      {hostMap.map(h => {
+                        const risk = h.ransomware > 2 ? 'Critical' : h.ransomware > 0 ? 'High' : h.honeytoken > 0 ? 'Medium' : 'Low'
+                        const riskColor = risk === 'Critical' ? '#f87171' : risk === 'High' ? '#fb923c' : risk === 'Medium' ? '#fbbf24' : '#34d399'
+                        const riskBg = risk === 'Critical' ? 'rgba(239,68,68,0.1)' : risk === 'High' ? 'rgba(249,115,22,0.1)' : risk === 'Medium' ? 'rgba(245,158,11,0.1)' : 'rgba(16,185,129,0.1)'
+                        return (
+                          <tr key={h.host} className="transition-colors"
+                            style={{ borderBottom: '1px solid rgba(255,255,255,0.025)' }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.015)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <td className="px-6 py-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <span className="relative flex size-2">
+                                  {h.ransomware > 0 && <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: '#ef4444' }} />}
+                                  <span className="relative inline-flex rounded-full size-2" style={{ background: h.ransomware > 0 ? '#ef4444' : '#f59e0b' }} />
+                                </span>
+                                <span className="text-white font-semibold text-[12px] font-mono">{h.host}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-3.5">
+                              <span className="font-bold text-[15px] tabular-nums" style={{ color: h.total > 3 ? '#f87171' : h.total > 1 ? '#fbbf24' : '#6b8aaa' }}>{h.total}</span>
+                            </td>
+                            <td className="px-6 py-3.5">
+                              {h.ransomware > 0
+                                ? <span className="font-bold text-[12px]" style={{ color: '#f87171' }}>{h.ransomware}</span>
+                                : <span style={{ color: '#1e3048' }}>—</span>}
+                            </td>
+                            <td className="px-6 py-3.5">
+                              {h.honeytoken > 0
+                                ? <span className="font-bold text-[12px]" style={{ color: '#fbbf24' }}>{h.honeytoken}</span>
+                                : <span style={{ color: '#1e3048' }}>—</span>}
+                            </td>
+                            <td className="px-6 py-3.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-wider"
+                                style={{ background: riskBg, color: riskColor }}>
+                                {risk}
+                              </span>
+                            </td>
+                            <td className="px-6 py-3.5 text-right">
+                              <Link to="/Incidents" className="text-[10px] font-bold uppercase tracking-wider transition-all px-2.5 py-1 rounded-lg"
+                                style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)' }}
+                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.18)'; e.currentTarget.style.color = '#93c5fd' }}
+                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.color = '#60a5fa' }}>
+                                Investigate
+                              </Link>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-        </div>
+            {/* ════ FOOTER ════ */}
+            <div className="flex items-center justify-between py-3 text-[10px]" style={{ borderTop: '1px solid rgba(255,255,255,0.04)', color: '#1e3048' }}>
+              <span>Ransom Trap SOC Dashboard · v1.0.0</span>
+              <span className="flex items-center gap-1.5">
+                <span className="size-1.5 rounded-full" style={{ background: agentRunning ? '#10b981' : '#ef4444' }} />
+                Agent {agentRunning ? 'Online' : 'Offline'}
+              </span>
+            </div>
+
+          </div>
         </div>
       </main>
-      <div
-        id="restart-modal"
-        className="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-      >
-        <div className="relative w-full max-w-md bg-[#1e293b] rounded-xl shadow-2xl border border-[#334b63] overflow-hidden transform transition-all">
-          <div className="p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <span className="material-symbols-outlined text-3xl">restart_alt</span>
-              </div>
-              <h3 className="text-xl font-bold text-white">Restart System?</h3>
-            </div>
-            <div className="space-y-4">
-              <p className="text-[#92adc9] text-sm leading-relaxed">
-                Are you sure you want to restart the Ransom Trap monitoring service?
-              </p>
-              <div className="flex items-start gap-3 p-4 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                <span className="material-symbols-outlined text-orange-500 text-sm mt-0.5">warning</span>
-                <p className="text-orange-400 text-xs font-medium">
-                  This action will temporarily interrupt real-time monitoring and threat detection across all
-                  connected endpoints.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 mt-8">
-              <a className="px-4 py-2 text-sm font-bold text-[#92adc9] hover:text-white transition-colors" href="#">
-                Cancel
-              </a>
-              <a
-                className="inline-flex items-center justify-center px-6 py-2.5 bg-primary text-white text-sm font-bold rounded-lg shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all"
-                href="#"
-              >
-                Confirm Restart
-              </a>
-            </div>
-          </div>
-          <a className="absolute top-4 right-4 text-[#92adc9] hover:text-white transition-colors" href="#">
-            <span className="material-symbols-outlined">close</span>
-          </a>
-        </div>
-      </div>
-    </div >
+    </div>
   )
 }
