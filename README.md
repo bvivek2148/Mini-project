@@ -4,6 +4,8 @@
 
 **Entropy-Based Detection · Honeytoken Deception · Active Process Termination · OS-Level Folder Locking**
 
+🚀 **[Live Dashboard: ransom-trap.vercel.app](https://ransom-trap.vercel.app/)** 🚀
+
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-19.x-61DAFB?logo=react&logoColor=white)](https://react.dev)
@@ -617,7 +619,27 @@ notifications:
 
 ## ▶️ Running the Application
 
-You need **three terminals** running simultaneously:
+There are two ways to run Ransom-Trap: **Cloud Deployment** and **Local Development**.
+
+### Option 1: Cloud Deployment (Recommended)
+Since this is an EDR platform, the **Agent** must run on the local machine being protected, but the **Server** and **Dashboard** can be hosted in the cloud for remote monitoring.
+
+1. **Deploy Backend (Render):**
+   - Create a Web Service on Render pointing to your GitHub repository.
+   - **Root Directory:** `ransom_trap`
+   - **Start Command:** `uvicorn server.server_main:app --host 0.0.0.0 --port $PORT`
+2. **Deploy Frontend (Vercel):**
+   - Import your repository to Vercel.
+   - **Root Directory:** `dashboard`
+   - **Environment Variable:** Add `VITE_API_URL` pointing to your new Render URL.
+3. **Connect Local Agent:**
+   - On the machine you want to protect, edit `ransom_trap/config/config.yaml`.
+   - Set `alert_server_url` to your Render URL.
+   - Run the agent: `python -m agent.agent_main --config config/config.yaml`
+
+### Option 2: Local Development
+
+You need **three terminals** running simultaneously on your local machine:
 
 ### Terminal 1: FastAPI Alert Server
 
