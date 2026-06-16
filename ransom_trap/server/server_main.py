@@ -24,10 +24,10 @@ DASHBOARD_DIST = BASE_DIR / "dashboard" / "dist"
 
 app = FastAPI(title="Ransom-Trap Alert Server")
 
-# Allow the Vite dev server (localhost:5173) to call the API without CORS errors
+# Allow the Vite dev server and Vercel deployments to call the API without CORS errors
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
