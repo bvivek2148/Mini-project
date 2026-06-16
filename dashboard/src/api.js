@@ -1,9 +1,10 @@
 /**
  * Shared API helper for the Ransom-Trap dashboard.
  * In dev, Vite proxies /api → http://127.0.0.1:8000
+ * In prod, it uses VITE_API_URL from the environment.
  * @version 2.0
  */
-const BASE = '/api'
+const BASE = import.meta.env.VITE_API_URL || '/api'
 
 // ── Alerts ────────────────────────────────────────────────────────────────────
 export async function fetchAlerts() {
